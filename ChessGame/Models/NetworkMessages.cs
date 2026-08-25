@@ -9,7 +9,8 @@ namespace ChessGame.Models
         Move,
         Chat,
         GameState,
-        PlayerDisconnected
+        PlayerDisconnected,
+        StartGame
     }
 
     public class NetworkMessage

@@ -10,7 +10,7 @@ using ChessGame.Models;
 
 namespace ChessGame.Services
 {
-    public class ChessNetworkService
+    public class ChessNetworkService : INetworkService
     {
         private TcpListener? _server;
         private List<TcpClient> _clients = new List<TcpClient>();
@@ -19,9 +19,9 @@ namespace ChessGame.Services
 
         public bool IsHost { get; private set; }
         
-        public event Action<NetworkMessage, TcpClient?>? OnMessageReceived;
-        public event Action<TcpClient>? OnClientConnected;
-        public event Action<TcpClient>? OnClientDisconnected;
+        public event Action<NetworkMessage, object?>? OnMessageReceived;
+        public event Action<object>? OnClientConnected;
+        public event Action<object>? OnClientDisconnected;
 
         // Host Methods
         public void StartHost(int port)
@@ -96,23 +96,24 @@ namespace ChessGame.Services
                 if (IsHost)
                 {
                     _clients.Remove(client);
-                    OnClientDisconnected?.Invoke(client);
                 }
+                OnClientDisconnected?.Invoke(client);
                 client.Close();
             }
         }
 
         // Send to Server (if Client) or Send to specific client (if Host)
-        public async Task SendMessageAsync(NetworkMessage message, TcpClient? specificClient = null)
+        public async Task SendMessageAsync(NetworkMessage message, object? specificClient = null)
         {
             string json = JsonSerializer.Serialize(message) + "\n"; // Newline delimits messages
             byte[] buffer = System.Text.Encoding.UTF8.GetBytes(json);
 
             if (IsHost)
             {
-                if (specificClient != null && specificClient.Connected)
+                var targetClient = specificClient as TcpClient;
+                if (targetClient != null && targetClient.Connected)
                 {
-                    await specificClient.GetStream().WriteAsync(buffer, 0, buffer.Length);
+                    await targetClient.GetStream().WriteAsync(buffer, 0, buffer.Length);
                 }
             }
             else
@@ -125,7 +126,7 @@ namespace ChessGame.Services
         }
 
         // Host only: Broadcast to all clients
-        public async Task BroadcastMessageAsync(NetworkMessage message, TcpClient? excludeClient = null)
+        public async Task BroadcastMessageAsync(NetworkMessage message, object? excludeClient = null)
         {
             if (!IsHost) return;
 
@@ -136,7 +137,7 @@ namespace ChessGame.Services
 
             foreach (var client in _clients)
             {
-                if (client == excludeClient) continue;
+                if (client == (excludeClient as TcpClient)) continue;
 
                 if (client.Connected)
                 {

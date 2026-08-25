@@ -21,7 +21,7 @@ namespace ChessGame.ViewModels
         public bool IsMultiplayerHost { get; set; } = false;
         public bool IsMultiplayerClient { get; set; } = false;
 
-        public Services.ChessNetworkService NetworkService { get; } = new Services.ChessNetworkService();
+        public Services.INetworkService NetworkService { get; set; } = new Services.ChessNetworkService();
         public Services.LanDiscoveryService DiscoveryService { get; } = new Services.LanDiscoveryService();
 
         public MainViewModel()

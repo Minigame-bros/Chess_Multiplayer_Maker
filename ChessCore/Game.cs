@@ -10,12 +10,17 @@ namespace ChessCore
         public bool IsCheck { get; private set; }
         public bool IsCheckmate { get; private set; }
         public bool IsStalemate { get; private set; }
-        public bool IsGameOver => IsCheckmate || IsStalemate;
+        public DrawReason DrawReason { get; private set; } = DrawReason.None;
+        public bool IsGameOver => IsCheckmate || IsStalemate || DrawReason != DrawReason.None;
+
+        public int HalfmoveClock { get; private set; } = 0;
+        private Dictionary<string, int> _positionHistory = new Dictionary<string, int>();
 
         public Game()
         {
             Board = Board.Initial();
             CurrentPlayer = PlayerColor.White;
+            _positionHistory[GenerateStateString()] = 1;
         }
 
         public void ForceSetCurrentPlayer(PlayerColor color)
@@ -38,6 +43,9 @@ namespace ChessCore
             }
 
             // Execute move
+            bool isCapture = Board[to] != null;
+            bool isPawnMove = piece.Type == PieceType.Pawn;
+            
             Board[to] = piece;
             Board[from] = null;
             
@@ -91,6 +99,23 @@ namespace ChessCore
             // Check if the new player is in check
             IsCheck = IsPlayerInCheck(CurrentPlayer, Board);
 
+            // Update draw clocks
+            if (isPawnMove || isCapture)
+            {
+                HalfmoveClock = 0;
+                _positionHistory.Clear(); // Only exact positions count, pawn moves and captures are irreversible
+            }
+            else
+            {
+                HalfmoveClock++;
+            }
+
+            string state = GenerateStateString();
+            if (_positionHistory.ContainsKey(state))
+                _positionHistory[state]++;
+            else
+                _positionHistory[state] = 1;
+
             // Check if game is over (no legal moves)
             if (!HasLegalMoves(CurrentPlayer))
             {
@@ -101,6 +126,26 @@ namespace ChessCore
                 else
                 {
                     IsStalemate = true;
+                    DrawReason = DrawReason.Stalemate;
+                }
+            }
+            else
+            {
+                // Check other draws
+                if (HalfmoveClock >= 100)
+                {
+                    IsStalemate = true;
+                    DrawReason = DrawReason.FiftyMoveRule;
+                }
+                else if (_positionHistory[state] >= 3)
+                {
+                    IsStalemate = true;
+                    DrawReason = DrawReason.ThreefoldRepetition;
+                }
+                else if (CheckInsufficientMaterial())
+                {
+                    IsStalemate = true;
+                    DrawReason = DrawReason.InsufficientMaterial;
                 }
             }
 
@@ -113,12 +158,11 @@ namespace ChessCore
             {
                 for (int c = 0; c < 8; c++)
                 {
-                    var pos = new Position(r, c);
-                    Piece? p = Board[pos];
+                    Piece? p = Board[r, c];
                     if (p != null && p.Color == color)
                     {
-                        var legalMoves = GetLegalMoves(p, pos);
-                        if (legalMoves.Any())
+                        var pos = new Position(r, c);
+                        if (GetLegalMoves(p, pos).Any())
                         {
                             return true;
                         }
@@ -127,6 +171,94 @@ namespace ChessCore
             }
             return false;
         }
+
+        private string GenerateStateString()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    Piece? p = Board[r, c];
+                    if (p == null) sb.Append("-");
+                    else
+                    {
+                        char t = p.Type.ToString()[0];
+                        sb.Append(p.Color == PlayerColor.White ? char.ToUpper(t) : char.ToLower(t));
+                        if (p.Type == PieceType.King || p.Type == PieceType.Rook)
+                        {
+                            sb.Append(p.HasMoved ? '1' : '0');
+                        }
+                    }
+                }
+            }
+            sb.Append(CurrentPlayer == PlayerColor.White ? 'W' : 'B');
+            if (Board.EnPassantTarget != null)
+                sb.Append($"{Board.EnPassantTarget.Value.Row}{Board.EnPassantTarget.Value.Col}");
+            return sb.ToString();
+        }
+
+        private bool CheckInsufficientMaterial()
+        {
+            int whiteKnights = 0, blackKnights = 0;
+            int whiteBishops = 0, blackBishops = 0;
+            int whiteBishopsLight = 0, whiteBishopsDark = 0;
+            int blackBishopsLight = 0, blackBishopsDark = 0;
+
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    Piece? p = Board[r, c];
+                    if (p != null)
+                    {
+                        if (p.Type == PieceType.Pawn || p.Type == PieceType.Rook || p.Type == PieceType.Queen)
+                            return false; // Pawns, Rooks, Queens can always mate
+                        
+                        if (p.Type == PieceType.Knight)
+                        {
+                            if (p.Color == PlayerColor.White) whiteKnights++;
+                            else blackKnights++;
+                        }
+                        else if (p.Type == PieceType.Bishop)
+                        {
+                            bool isLight = (r + c) % 2 == 0;
+                            if (p.Color == PlayerColor.White)
+                            {
+                                whiteBishops++;
+                                if (isLight) whiteBishopsLight++; else whiteBishopsDark++;
+                            }
+                            else
+                            {
+                                blackBishops++;
+                                if (isLight) blackBishopsLight++; else blackBishopsDark++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            int totalWhitePieces = whiteKnights + whiteBishops; // excluding King
+            int totalBlackPieces = blackKnights + blackBishops; // excluding King
+
+            // King vs King
+            if (totalWhitePieces == 0 && totalBlackPieces == 0) return true;
+
+            // King and minor piece vs King
+            if ((totalWhitePieces == 1 && totalBlackPieces == 0) || (totalWhitePieces == 0 && totalBlackPieces == 1)) return true;
+
+            // King and Bishop vs King and Bishop (Bishops on same color)
+            if (whiteBishops == 1 && blackBishops == 1 && whiteKnights == 0 && blackKnights == 0)
+            {
+                if ((whiteBishopsLight == 1 && blackBishopsLight == 1) || (whiteBishopsDark == 1 && blackBishopsDark == 1))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
 
         public IEnumerable<Position> GetLegalMoves(Piece piece, Position from)
         {

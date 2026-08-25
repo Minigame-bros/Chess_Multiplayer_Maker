@@ -7,6 +7,10 @@
              xmlns:vm="clr-namespace:ChessGame.ViewModels"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800" Background="#222">
+             
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
@@ -51,26 +55,29 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border x:Name="SquareBorder" Background="{Binding Background}" BorderThickness="0" Margin="0">
-                                <Border.InputBindings>
-                                    <MouseBinding MouseAction="LeftClick" 
-                                                  Command="{Binding DataContext.SquareClickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
-                                                  CommandParameter="{Binding}"/>
-                                </Border.InputBindings>
-                                <Grid>
-                                    <!-- Highlight circle for valid moves -->
-                                    <Ellipse x:Name="HighlightCircle" Fill="#8020C820" Margin="15" Visibility="Hidden"/>
-                                    <!-- Piece text -->
-                                    <TextBlock Text="{Binding PieceText}" Foreground="{Binding PieceColor}" 
-                                               FontSize="50" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI Symbol"/>
-                                </Grid>
+                                <Button Command="{Binding DataContext.SquareClickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
+                                        CommandParameter="{Binding}" 
+                                        Background="Transparent" BorderThickness="0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Grid>
+                                        <!-- Highlight circle for valid moves -->
+                                        <Ellipse x:Name="HighlightCircle" Fill="#8020C820" Width="24" Height="24" Visibility="{Binding IsHighlighted, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                        <!-- Piece text -->
+                                        <TextBlock Text="{Binding PieceText}" Foreground="{Binding PieceColor}" 
+                                                   FontSize="50" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI Symbol"/>
+                                    </Grid>
+                                </Button>
                             </Border>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                     <Setter TargetName="SquareBorder" Property="BorderBrush" Value="Yellow" />
                                     <Setter TargetName="SquareBorder" Property="BorderThickness" Value="3" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
-                                    <Setter TargetName="HighlightCircle" Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
@@ -97,29 +104,111 @@
         <Border Grid.Column="1" Background="#333" Padding="15">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/> <!-- Settings & Leave Room Menu -->
+                    <RowDefinition Height="Auto"/> <!-- Status Text -->
+                    <RowDefinition Height="Auto"/> <!-- Start Game Button -->
+                    <RowDefinition Height="Auto"/> <!-- Return to game button -->
+                    <RowDefinition Height="Auto"/> <!-- History Header -->
+                    <RowDefinition Height="*"/>    <!-- Move History -->
+                    <RowDefinition Height="Auto"/> <!-- Chat Header -->
+                    <RowDefinition Height="150"/>  <!-- Chat Messages -->
+                    <RowDefinition Height="Auto"/> <!-- Chat Input -->
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0">
-                    <TextBlock Text="Cài đặt Bàn cờ" Foreground="White" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+                <!-- Top Bar: Options -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     
-                    <TextBlock Text="Màu ô sáng (Hex):" Foreground="White" Margin="0,5,0,0"/>
-                    <ComboBox SelectedIndex="{Binding SelectedThemeIndex}" Margin="0,5,0,10">
-                        <ComboBoxItem Content="Gỗ Cổ điển" />
-                        <ComboBoxItem Content="Xanh lá/Trắng" />
-                        <ComboBoxItem Content="Xám/Trắng" />
-                    </ComboBox>
+                    <ToggleButton x:Name="SettingsToggle" Grid.Column="0" Content="⚙️" FontSize="18" Padding="5" Background="Transparent" Foreground="White" BorderThickness="0" ToolTip="Cài đặt bàn cờ"/>
+                    
+                    <Popup IsOpen="{Binding IsChecked, ElementName=SettingsToggle}" StaysOpen="False" PlacementTarget="{Binding ElementName=SettingsToggle}" Placement="Bottom">
+                        <Border Background="#444" BorderBrush="#555" BorderThickness="1" Padding="10">
+                            <StackPanel>
+                                <TextBlock Text="Màu ô sáng (Hex):" Foreground="White" Margin="0,0,0,5"/>
+                                <ComboBox SelectedIndex="{Binding SelectedThemeIndex}">
+                                    <ComboBoxItem Content="Gỗ Cổ điển" />
+                                    <ComboBoxItem Content="Xanh lá/Trắng" />
+                                    <ComboBoxItem Content="Xám/Trắng" />
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
 
-                    <TextBlock Text="Trạng thái:" Foreground="White" Margin="0,15,0,5"/>
-                    <TextBlock Text="{Binding StatusText}" Foreground="LightGray" FontSize="16" FontWeight="Bold" TextWrapping="Wrap"/>
-                </StackPanel>
+                    <Button Grid.Column="2" Content="Thoát phòng" Command="{Binding LeaveRoomCommand}" Background="#d9534f" Foreground="White" Padding="10,5" FontWeight="Bold" ToolTip="Thoát khỏi phòng chơi"/>
+                </Grid>
                 
-                <TextBlock Grid.Row="1" Text="Chat" Foreground="White" FontSize="18" FontWeight="Bold" Margin="0,20,0,10"/>
+                <TextBlock Grid.Row="1" Text="{Binding StatusText}" Foreground="LightGray" FontSize="16" FontWeight="Bold" TextWrapping="Wrap" Margin="0,5,0,10"/>
                 
-                <ScrollViewer Grid.Row="2" Background="#222" Margin="0,0,0,10">
+                <!-- Start / Play Again Button -->
+                <Button Grid.Row="2" Content="{Binding StartButtonText}" Command="{Binding StartGameCommand}" Background="#5cb85c" Foreground="White" Padding="5" Margin="0,0,0,10" FontWeight="Bold" Visibility="{Binding CanStartGame, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <!-- Return to game button (visible when viewing history) -->
+                <Button Grid.Row="3" Content="Quay lại ván cờ chính" Command="{Binding ReturnToCurrentGameCommand}" Background="#0275d8" Foreground="White" Padding="5" Margin="0,0,0,10" FontWeight="Bold">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsViewingHistory}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <TextBlock Grid.Row="4" Text="Biên bản ván cờ" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,5"/>
+                
+                <!-- History ItemsControl (Two Columns) -->
+                <ScrollViewer Grid.Row="5" Background="#222" Margin="0,0,0,10">
+                    <ItemsControl ItemsSource="{Binding MoveHistory}" Foreground="White" BorderThickness="1" BorderBrush="#555">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding DisplayTurnNumber}" FontSize="14" Foreground="LightGray" VerticalAlignment="Center"/>
+                                    
+                                    <Button Grid.Column="1" Content="{Binding WhiteMove.SanNotation}" Command="{Binding DataContext.ReviewMoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding WhiteMove}" Background="Transparent" Foreground="White" BorderThickness="0" HorizontalAlignment="Left">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding WhiteMove}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Hidden"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    
+                                    <Button Grid.Column="2" Content="{Binding BlackMove.SanNotation}" Command="{Binding DataContext.ReviewMoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding BlackMove}" Background="Transparent" Foreground="White" BorderThickness="0" HorizontalAlignment="Left">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding BlackMove}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Hidden"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <TextBlock Grid.Row="6" Text="Chat" Foreground="White" FontSize="18" FontWeight="Bold" Margin="0,20,0,10"
+                           Visibility="{Binding IsMultiplayerMode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                
+                <ScrollViewer Grid.Row="7" Background="#222" Margin="0,0,0,10"
+                              Visibility="{Binding IsMultiplayerMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <ItemsControl ItemsSource="{Binding ChatMessages}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -129,12 +218,12 @@
                     </ItemsControl>
                 </ScrollViewer>
                 
-                <Grid Grid.Row="3">
+                <Grid Grid.Row="8" Visibility="{Binding IsMultiplayerMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBox Text="{Binding ChatInput, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,5,0">
+                    <TextBox Grid.Column="0" Text="{Binding ChatInput, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,5,0">
                         <TextBox.InputBindings>
                             <KeyBinding Key="Enter" Command="{Binding SendChatCommand}" />
                         </TextBox.InputBindings>

@@ -12,6 +12,7 @@ namespace ChessGame.ViewModels
 
         public ICommand HotseatCommand { get; }
         public ICommand LanCommand { get; }
+        public ICommand PlayInternetCommand { get; }
 
         public MainMenuViewModel()
         {
@@ -23,6 +24,11 @@ namespace ChessGame.ViewModels
             LanCommand = new RelayCommand(_ => 
             {
                 MainViewModel.Instance.NavigateTo(new LanLobbyViewModel());
+            });
+
+            PlayInternetCommand = new RelayCommand(_ => 
+            {
+                MainViewModel.Instance.NavigateTo(new InternetLobbyViewModel());
             });
         }
     }

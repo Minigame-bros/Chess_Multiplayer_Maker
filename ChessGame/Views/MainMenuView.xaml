@@ -13,7 +13,8 @@
             <TextBox Text="{Binding PlayerName, UpdateSourceTrigger=PropertyChanged}" FontSize="18" Padding="5" Margin="0,0,0,30"/>
             
             <Button Content="Chơi 2 người (Cùng 1 máy)" Command="{Binding HotseatCommand}" FontSize="18" Padding="10" Margin="0,0,0,15" Background="#444" Foreground="White"/>
-            <Button Content="Chơi qua mạng (LAN/WiFi)" Command="{Binding LanCommand}" FontSize="18" Padding="10" Background="#444" Foreground="White"/>
+            <Button Content="Chơi qua mạng (LAN/WiFi)" Command="{Binding LanCommand}" FontSize="18" Padding="10" Margin="0,0,0,15" Background="#444" Foreground="White"/>
+            <Button Content="Chơi qua Internet (SignalR)" Command="{Binding PlayInternetCommand}" FontSize="18" Padding="10" Background="#1E88E5" Foreground="White"/>
         </StackPanel>
     </Grid>
 </UserControl>

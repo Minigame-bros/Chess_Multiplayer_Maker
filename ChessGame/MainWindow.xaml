@@ -20,6 +20,9 @@
         <DataTemplate DataType="{x:Type vm:GameRoomViewModel}">
             <views:GameRoomView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:InternetLobbyViewModel}">
+            <views:InternetLobbyView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>

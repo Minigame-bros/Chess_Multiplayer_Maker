@@ -48,7 +48,8 @@ namespace ChessGame.ViewModels
             CreateRoomCommand = new RelayCommand(_ => 
             {
                 discovery.StopListening();
-                network.StartHost(11001);
+                var tcpNetwork = network as ChessGame.Services.ChessNetworkService;
+                tcpNetwork?.StartHost(11001);
                 
                 var roomInfo = new Models.UdpDiscoveryMessage 
                 {
@@ -69,7 +70,8 @@ namespace ChessGame.ViewModels
                 if (param is RoomItem room)
                 {
                     discovery.StopListening();
-                    bool success = await network.ConnectAsync(room.IpAddress, room.Port);
+                    var tcpNetwork = network as ChessGame.Services.ChessNetworkService;
+                    bool success = tcpNetwork != null && await tcpNetwork.ConnectAsync(room.IpAddress, room.Port);
                     if (success)
                     {
                         MainViewModel.Instance.IsMultiplayerHost = false;

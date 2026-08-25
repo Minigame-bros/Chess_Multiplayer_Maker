@@ -17,4 +17,13 @@ namespace ChessCore
         Queen,
         King
     }
+
+    public enum DrawReason
+    {
+        None,
+        Stalemate,
+        ThreefoldRepetition,
+        FiftyMoveRule,
+        InsufficientMaterial
+    }
 }
