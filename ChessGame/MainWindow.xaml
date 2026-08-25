@@ -1,0 +1,29 @@
+<Window x:Class="ChessGame.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ChessGame"
+        xmlns:views="clr-namespace:ChessGame.Views"
+        xmlns:vm="clr-namespace:ChessGame.ViewModels"
+        mc:Ignorable="d"
+        Title="Chess Game" Height="700" Width="1000" WindowStartupLocation="CenterScreen">
+    
+    <Window.Resources>
+        <!-- Mapping ViewModels to Views -->
+        <DataTemplate DataType="{x:Type vm:MainMenuViewModel}">
+            <views:MainMenuView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LanLobbyViewModel}">
+            <views:LanLobbyView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GameRoomViewModel}">
+            <views:GameRoomView />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <!-- The ContentControl will display the View corresponding to the CurrentViewModel -->
+        <ContentControl Content="{Binding CurrentViewModel}" />
+    </Grid>
+</Window>
