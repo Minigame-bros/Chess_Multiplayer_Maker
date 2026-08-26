@@ -4,17 +4,503 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
-             d:DesignHeight="600" d:DesignWidth="800" Background="#222">
+             d:DesignHeight="700" d:DesignWidth="1000">
+
+    <UserControl.Resources>
+
+        <!-- ===== ANIMATIONS ===== -->
+
+        <!-- Fade + slide in from bottom for the whole panel -->
+        <Storyboard x:Key="PanelEntrance">
+            <DoubleAnimation Storyboard.TargetName="MainPanel"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0.3" To="1" Duration="0:0:0.8"
+                             EasingFunction="{x:Null}"/>
+            <DoubleAnimation Storyboard.TargetName="PanelTranslate"
+                             Storyboard.TargetProperty="Y"
+                             From="60" To="0" Duration="0:0:0.7">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- Title glow pulse -->
+        <Storyboard x:Key="TitleGlowPulse" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="TitleGlow"
+                             Storyboard.TargetProperty="(Effect).(DropShadowEffect.BlurRadius)"
+                             From="12" To="35" Duration="0:0:1.6">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- ===== CARD BUTTON STYLE ===== -->
+        <Style x:Key="GameCardStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1A1A2E"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3A3A5C"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1" ScaleY="1"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#000000" BlurRadius="15" ShadowDepth="4" Opacity="0.5"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CardBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="20,24">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.05" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.05" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                            To="#252545" Duration="0:0:0.18"/>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                                            To="#6060AA" Duration="0:0:0.18"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.0" Duration="0:0:0.2"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.0" Duration="0:0:0.2"/>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                            To="#1A1A2E" Duration="0:0:0.2"/>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                                            To="#3A3A5C" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Online Card: accent vàng/cam nổi bật -->
+        <Style x:Key="OnlineCardStyle" TargetType="Button" BasedOn="{StaticResource GameCardStyle}">
+            <Setter Property="Background" Value="#16213E"/>
+            <Setter Property="BorderBrush" Value="#E6A817"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#E6A817" BlurRadius="20" ShadowDepth="0" Opacity="0.35"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CardBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="20,24">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.05" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.05" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                            To="#1E2D50" Duration="0:0:0.18"/>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                                            To="#FFD166" Duration="0:0:0.18"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.0" Duration="0:0:0.2"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="(RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.0" Duration="0:0:0.2"/>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                            To="#16213E" Duration="0:0:0.2"/>
+                                            <ColorAnimation Storyboard.TargetName="CardBorder"
+                                                            Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                                            To="#E6A817" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- TextBox style -->
+        <Style x:Key="PlayerNameBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#0F0F1E"/>
+            <Setter Property="Foreground" Value="#E8E8FF"/>
+            <Setter Property="CaretBrush" Value="#A0A0FF"/>
+            <Setter Property="SelectionBrush" Value="#5555CC"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3A3A5C"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Root" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="Root"
+                                                            Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                                            To="#7070DD" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="Root"
+                                                            Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                                            To="#3A3A5C" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </UserControl.Resources>
+
+    <!-- Trigger entrance animation when loaded -->
+    <UserControl.Triggers>
+        <EventTrigger RoutedEvent="Loaded">
+            <BeginStoryboard Storyboard="{StaticResource PanelEntrance}"/>
+            <BeginStoryboard Storyboard="{StaticResource TitleGlowPulse}"/>
+        </EventTrigger>
+    </UserControl.Triggers>
+
+    <!-- ===== MAIN BACKGROUND ===== -->
     <Grid>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="300">
-            <TextBlock Text="CỜ VUA" FontSize="48" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,50"/>
-            
-            <TextBlock Text="Nhập tên của bạn:" Foreground="LightGray" FontSize="16" Margin="0,0,0,5"/>
-            <TextBox Text="{Binding PlayerName, UpdateSourceTrigger=PropertyChanged}" FontSize="18" Padding="5" Margin="0,0,0,30"/>
-            
-            <Button Content="Chơi 2 người (Cùng 1 máy)" Command="{Binding HotseatCommand}" FontSize="18" Padding="10" Margin="0,0,0,15" Background="#444" Foreground="White"/>
-            <Button Content="Chơi qua mạng (LAN/WiFi)" Command="{Binding LanCommand}" FontSize="18" Padding="10" Margin="0,0,0,15" Background="#444" Foreground="White"/>
-            <Button Content="Chơi qua Internet (SignalR)" Command="{Binding PlayInternetCommand}" FontSize="18" Padding="10" Background="#1E88E5" Foreground="White"/>
-        </StackPanel>
+        <!-- Deep dark gradient background -->
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#080815" Offset="0"/>
+                <GradientStop Color="#0D0D24" Offset="0.5"/>
+                <GradientStop Color="#050510" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <!-- Decorative radial overlay: subtle "spotlight" from top-center -->
+        <Ellipse Width="700" Height="400"
+                 HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,-180,0,0">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#22204060" Offset="0"/>
+                    <GradientStop Color="#00000000" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Subtle decorative circle top-right -->
+        <Ellipse Width="300" Height="300"
+                 HorizontalAlignment="Right" VerticalAlignment="Top"
+                 Margin="0,-100,-80,0" Opacity="0.12">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#E6A817" Offset="0"/>
+                    <GradientStop Color="#00000000" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- Subtle decorative circle bottom-left -->
+        <Ellipse Width="250" Height="250"
+                 HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                 Margin="-60,0,0,-60" Opacity="0.1">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#5050CC" Offset="0"/>
+                    <GradientStop Color="#00000000" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <!-- ===== CONTENT PANEL ===== -->
+        <Grid x:Name="MainPanel" Opacity="1">
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="PanelTranslate" Y="60"/>
+            </Grid.RenderTransform>
+
+            <Grid.RowDefinitions>
+                <!-- Top: version label -->
+                <RowDefinition Height="Auto"/>
+                <!-- Center: title -->
+                <RowDefinition Height="*"/>
+                <!-- Cards -->
+                <RowDefinition Height="Auto"/>
+                <!-- Bottom: player name + version -->
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- TOP BAR -->
+            <Border Grid.Row="0" Padding="30,16" Background="#0A0A1A">
+                <Grid>
+                    <TextBlock Text="♟ CHESS ONLINE" Foreground="#5555AA" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <!-- TITLE SECTION -->
+            <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,10">
+
+                <!-- Chess unicode icon -->
+                <TextBlock Text="♛" FontSize="72" HorizontalAlignment="Center" Margin="0,0,0,-10">
+                    <TextBlock.Foreground>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#E6A817" Offset="0"/>
+                            <GradientStop Color="#FFD166" Offset="1"/>
+                        </LinearGradientBrush>
+                    </TextBlock.Foreground>
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#E6A817" BlurRadius="25" ShadowDepth="0" Opacity="0.7"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+
+                <!-- Main title with glow -->
+                <TextBlock x:Name="TitleGlow"
+                           Text="CỜ VUA"
+                           FontSize="68"
+                           FontWeight="Black"
+                           HorizontalAlignment="Center"
+
+                           Margin="0,0,0,6">
+                    <TextBlock.Foreground>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#FFFFFF" Offset="0"/>
+                            <GradientStop Color="#C0C0FF" Offset="0.5"/>
+                            <GradientStop Color="#FFFFFF" Offset="1"/>
+                        </LinearGradientBrush>
+                    </TextBlock.Foreground>
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#4444CC" BlurRadius="20" ShadowDepth="0" Opacity="0.9"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+
+                <!-- Subtitle -->
+                <TextBlock Text="MULTIPLAYER CHESS"
+                           FontSize="13"
+                           FontWeight="Normal"
+                           HorizontalAlignment="Center"
+                           Foreground="#5A5A8A"
+                           Margin="0,0,0,0"/>
+
+                <!-- Thin separator line -->
+                <Rectangle Height="1" Width="200" Margin="0,20,0,0">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#00000000" Offset="0"/>
+                            <GradientStop Color="#4444AA" Offset="0.5"/>
+                            <GradientStop Color="#00000000" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+            </StackPanel>
+
+            <!-- GAME MODE CARDS (4 ngang) -->
+            <Grid Grid.Row="2" Margin="20,0,20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="15"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="15"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="15"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Card 1: Bot (New) -->
+                <Button Grid.Column="0"
+                        Style="{StaticResource GameCardStyle}"
+                        Command="{Binding PlayBotCommand}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="🤖" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Text="ĐẤU VỚI MÁY" FontSize="13" FontWeight="Bold" Foreground="#8888CC"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Chơi Cùng Bot" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="#E0E0FF" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Thách thức 5 kì thủ Bot&#10;chuẩn Elo quốc tế"
+                                   FontSize="12" Foreground="#6666AA" HorizontalAlignment="Center"
+                                   TextAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Card 2: Hotseat -->
+                <Button Grid.Column="2"
+                        Style="{StaticResource GameCardStyle}"
+                        Command="{Binding HotseatCommand}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="🖥" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Text="HOTSEAT" FontSize="13" FontWeight="Bold" Foreground="#8888CC"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="2 Người Cùng Máy" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="#E0E0FF" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Chơi đối kháng với bạn bè&#10;trên cùng một thiết bị"
+                                   FontSize="12" Foreground="#6666AA" HorizontalAlignment="Center"
+                                   TextAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Card 3: LAN -->
+                <Button Grid.Column="4"
+                        Style="{StaticResource GameCardStyle}"
+                        Command="{Binding LanCommand}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="📡" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Text="LAN / WI-FI" FontSize="13" FontWeight="Bold" Foreground="#8888CC"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Mạng Nội Bộ" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="#E0E0FF" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Kết nối qua mạng LAN&#10;hoặc Wi-Fi cùng khu vực"
+                                   FontSize="12" Foreground="#6666AA" HorizontalAlignment="Center"
+                                   TextAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Card 4: Internet (highlighted) -->
+                <Button Grid.Column="6"
+                        Style="{StaticResource OnlineCardStyle}"
+                        Command="{Binding PlayInternetCommand}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <!-- HOT badge -->
+                        <Border Background="#E6A817" CornerRadius="10" Padding="8,2"
+                                HorizontalAlignment="Center" Margin="0,0,0,8">
+                            <TextBlock Text="✦ ONLINE" FontSize="10" FontWeight="Bold"
+                                       Foreground="#0A0A14"/>
+                        </Border>
+                        <TextBlock Text="🌐" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <TextBlock Text="INTERNET" FontSize="13" FontWeight="Bold" Foreground="#E6A817"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Chơi Qua Internet" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="#FFE8A0" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Kết nối thời gian thực&#10;với SignalR Server"
+                                   FontSize="12" Foreground="#AA8830" HorizontalAlignment="Center"
+                                   TextAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- BOTTOM: Player name input -->
+            <Border Grid.Row="3" Margin="40,30,40,30">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="360"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Player card panel -->
+                    <Border Grid.Column="1" Background="#10101E" CornerRadius="10" Padding="20,16">
+                        <Border.BorderBrush>
+                            <SolidColorBrush Color="#2A2A4A"/>
+                        </Border.BorderBrush>
+                        <Border.BorderThickness>1</Border.BorderThickness>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Avatar placeholder -->
+                            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22" Margin="0,0,14,0"
+                                    VerticalAlignment="Center">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#3A3AAA" Offset="0"/>
+                                        <GradientStop Color="#7070CC" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="♟" FontSize="22" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" Foreground="White"/>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="TÊN NGƯỜI CHƠI" FontSize="10" FontWeight="Bold"
+                                           Foreground="#4A4A6A" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding PlayerName, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource PlayerNameBoxStyle}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+        </Grid>
     </Grid>
 </UserControl>

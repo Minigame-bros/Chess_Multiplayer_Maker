@@ -26,7 +26,10 @@ namespace ChessGame.ViewModels
 
         public MainViewModel()
         {
-            _instance = this;
+            _instance = this; // Must be set first before any child ViewModel accesses Instance
+            _currentViewModel = null!;
+            
+            // Now safe to create child ViewModels that reference Instance
             _currentViewModel = new MainMenuViewModel();
         }
 

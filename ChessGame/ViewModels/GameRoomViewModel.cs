@@ -8,8 +8,10 @@ using System.Text.Json;
 using System.Collections.Generic;
 using System.Windows.Threading;
 using System;
+using System.Threading.Tasks;
 using ChessCore;
 using ChessGame.Models;
+using ChessBot;
 
 namespace ChessGame.ViewModels
 {
@@ -30,6 +32,8 @@ namespace ChessGame.ViewModels
         private bool _isRematch = false;
         private int _playerCount = 1;
         private DispatcherTimer? _gameTimer;
+        private IChessBot? _bot;
+        private bool _isBotThinking = false;
         
         public string MyName { get; private set; } = "Player 1";
         public string OpponentName { get; private set; } = "Player 2";
@@ -89,17 +93,28 @@ namespace ChessGame.ViewModels
         }
         
         public bool IsHost => MainViewModel.Instance.IsMultiplayerHost;
-        public bool IsHotseatMode => !MainViewModel.Instance.IsMultiplayerHost && !MainViewModel.Instance.IsMultiplayerClient;
-        public bool IsMultiplayerMode => !IsHotseatMode;
+        public bool IsHotseatMode => !MainViewModel.Instance.IsMultiplayerHost && !MainViewModel.Instance.IsMultiplayerClient && _bot == null;
+        public bool IsMultiplayerMode => MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient;
+        public bool IsBotMode => _bot != null;
+        
+        private string _botSpeechText = "";
+        public string BotSpeechText { get => _botSpeechText; set { _botSpeechText = value; OnPropertyChanged(); } }
+        
+        public IChessBot? Bot => _bot;
         
         public bool CanStartGame => (IsHost && _playerCount == 2 && CurrentStatus != GameStatus.Playing) || 
-                                    (IsHotseatMode && CurrentStatus != GameStatus.Playing);
+                                    (IsHotseatMode && CurrentStatus != GameStatus.Playing) ||
+                                    (IsBotMode && CurrentStatus != GameStatus.Playing);
         public string StartButtonText => CurrentStatus == GameStatus.Finished ? "Chơi ván mới" : "Bắt đầu";
         private bool _isMyTurn
         {
             get
             {
                 if (_isSpectator) return false;
+                if (IsBotMode)
+                {
+                    return _myColor == _game.CurrentPlayer && !_isBotThinking;
+                }
                 if (MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient)
                 {
                     if (_myColor == PlayerColor.None) return false;
@@ -268,6 +283,19 @@ namespace ChessGame.ViewModels
             }
         }
 
+        public GameRoomViewModel(IChessBot bot) : this()
+        {
+            _bot = bot;
+            _myColor = PlayerColor.White; // Player is always White vs Bot for now
+            OpponentName = bot.Name;
+            OpponentNameDisplay = $"{bot.Name} (Elo: {bot.Elo})";
+            BotSpeechText = bot.GetSpeech(GameState.Start);
+            
+            CurrentStatus = GameStatus.Playing;
+            StatusText = "Lượt: Trắng";
+            StartTimers();
+        }
+
         private void OnLeaveRoom(object? parameter)
         {
             // Disconnect if we are in multiplayer
@@ -380,6 +408,10 @@ namespace ChessGame.ViewModels
                 };
                 _ = _network.BroadcastMessageAsync(new NetworkMessage { Type = MessageType.StartGame, Payload = JsonSerializer.Serialize(payload) });
                 ChatMessages.Add("[Hệ thống] Trận đấu bắt đầu!");
+            }
+            else if (IsBotMode)
+            {
+                BotSpeechText = _bot!.GetSpeech(GameState.Start);
             }
             StartTimers();
         }
@@ -726,14 +758,20 @@ namespace ChessGame.ViewModels
                 CurrentStatus = GameStatus.Finished;
                 OnPropertyChanged(nameof(StartButtonText));
                 status = $"HẾT CỜ! {(_game.CurrentPlayer == PlayerColor.White ? "ĐEN" : "TRẮNG")} THẮNG!";
+                if (IsBotMode) BotSpeechText = _game.CurrentPlayer == _myColor ? _bot!.GetSpeech(GameState.Won) : _bot!.GetSpeech(GameState.Lost);
             }
             else if (_game.IsStalemate) 
             {
                 CurrentStatus = GameStatus.Finished;
                 OnPropertyChanged(nameof(StartButtonText));
                 status = "HÒA CỜ!";
+                if (IsBotMode) BotSpeechText = _bot!.GetSpeech(GameState.Draw);
             }
-            else if (_game.IsCheck) status += " (ĐANG BỊ CHIẾU!)";
+            else if (_game.IsCheck) 
+            {
+                status += " (ĐANG BỊ CHIẾU!)";
+                if (IsBotMode && _game.CurrentPlayer != _myColor) BotSpeechText = _bot!.GetSpeech(GameState.Checked);
+            }
             
             StatusText = status;
         }
@@ -821,12 +859,19 @@ namespace ChessGame.ViewModels
                             HandleTimeIncrement(PlayerColor.White == _game.CurrentPlayer ? PlayerColor.Black : PlayerColor.White);
                             RecordMove(san, from, to);
                             SyncBoardToUI();
-                            if (_myColor != PlayerColor.None)
+                            if (_myColor != PlayerColor.None && !IsBotMode)
                             {
                                 var move = new MoveAction { FromRow = from.Row, FromCol = from.Col, ToRow = to.Row, ToCol = to.Col, PromotionPieceType = 5 };
                                 var msg = new NetworkMessage { Type = MessageType.Move, Payload = JsonSerializer.Serialize(move) };
                                 if (MainViewModel.Instance.IsMultiplayerHost) _ = _network.BroadcastMessageAsync(msg);
                                 else _ = _network.SendMessageAsync(msg);
+                            }
+                            
+                            if (IsBotMode && CurrentStatus == GameStatus.Playing)
+                            {
+                                bool wasCapture = san.Contains("x");
+                                if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured);
+                                _ = HandleBotTurnAsync();
                             }
                         }
                     }
@@ -842,6 +887,67 @@ namespace ChessGame.ViewModels
                         }
                     }
                 }
+            }
+        }
+
+        private async Task HandleBotTurnAsync()
+        {
+            if (_bot == null || _game.CurrentPlayer == _myColor || CurrentStatus != GameStatus.Playing) return;
+
+            _isBotThinking = true;
+            OnPropertyChanged(nameof(_isMyTurn));
+            
+            if (string.IsNullOrEmpty(BotSpeechText) || BotSpeechText == _bot.GetSpeech(GameState.Start))
+            {
+                BotSpeechText = _bot.GetSpeech(GameState.Thinking);
+            }
+
+            try
+            {
+                var move = await _bot.CalculateMoveAsync(_game);
+                
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (CurrentStatus != GameStatus.Playing) return;
+                    
+                    string san = GenerateSan(move.From, move.To);
+                    if (move.Promotion.HasValue)
+                    {
+                        string promoChar = move.Promotion.Value switch
+                        {
+                            PieceType.Rook => "R",
+                            PieceType.Bishop => "B",
+                            PieceType.Knight => "N",
+                            _ => "Q"
+                        };
+                        san += "=" + promoChar;
+                    }
+                    
+                    bool wasCapture = _game.Board[move.To] != null;
+                    
+                    _game.MovePiece(move.From, move.To, move.Promotion ?? PieceType.Queen);
+                    HandleTimeIncrement(PlayerColor.White == _game.CurrentPlayer ? PlayerColor.Black : PlayerColor.White);
+                    RecordMove(san, move.From, move.To);
+                    SyncBoardToUI();
+
+                    if (CurrentStatus == GameStatus.Playing)
+                    {
+                        BotSpeechText = _bot.GetSpeech(GameState.Moved);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    StatusText = "Lỗi Bot: " + ex.Message;
+                    CurrentStatus = GameStatus.Finished;
+                });
+            }
+            finally
+            {
+                _isBotThinking = false;
+                System.Windows.Application.Current.Dispatcher.Invoke(() => OnPropertyChanged(nameof(_isMyTurn)));
             }
         }
 

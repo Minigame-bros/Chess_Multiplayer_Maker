@@ -293,6 +293,28 @@
                     </ItemsControl>
                 </ScrollViewer>
                 
+                <!-- Bot Character Display (Only in Bot Mode) -->
+                <Grid Grid.Row="6" Grid.RowSpan="3" Visibility="{Binding IsBotMode, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,20,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Ellipse Width="80" Height="80" VerticalAlignment="Bottom" Stroke="#555" StrokeThickness="2">
+                        <Ellipse.Fill>
+                            <ImageBrush ImageSource="{Binding Bot.AvatarPath}" Stretch="UniformToFill"/>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    
+                    <Grid Grid.Column="1" Margin="10,0,0,20" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <!-- Speech bubble tail -->
+                        <Path Fill="#E6A817" Data="M0,20 L15,10 L15,30 Z" Margin="-10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Border Background="#E6A817" CornerRadius="10" Padding="10" MinHeight="50" MaxWidth="140">
+                            <TextBlock Text="{Binding BotSpeechText}" Foreground="#111" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        </Border>
+                    </Grid>
+                </Grid>
+                
                 <Grid Grid.Row="8" Visibility="{Binding IsMultiplayerMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

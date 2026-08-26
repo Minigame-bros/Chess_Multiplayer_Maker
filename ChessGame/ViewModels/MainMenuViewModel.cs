@@ -11,6 +11,7 @@ namespace ChessGame.ViewModels
         }
 
         public ICommand HotseatCommand { get; }
+        public ICommand PlayBotCommand { get; }
         public ICommand LanCommand { get; }
         public ICommand PlayInternetCommand { get; }
 
@@ -19,6 +20,11 @@ namespace ChessGame.ViewModels
             HotseatCommand = new RelayCommand(_ => 
             {
                 MainViewModel.Instance.NavigateTo(new GameRoomViewModel());
+            });
+
+            PlayBotCommand = new RelayCommand(_ => 
+            {
+                MainViewModel.Instance.NavigateTo(new BotSelectionViewModel());
             });
 
             LanCommand = new RelayCommand(_ => 
