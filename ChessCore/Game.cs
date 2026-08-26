@@ -28,7 +28,21 @@ namespace ChessCore
             CurrentPlayer = color;
         }
 
-        public bool MovePiece(Position from, Position to)
+        public bool IsPromotionMove(Position from, Position to)
+        {
+            Piece? piece = Board[from];
+            if (piece == null || piece.Type != PieceType.Pawn) return false;
+            
+            var legalMoves = GetLegalMoves(piece, from);
+            if (!legalMoves.Contains(to)) return false;
+
+            if (piece.Color == PlayerColor.White && to.Row == 0) return true;
+            if (piece.Color == PlayerColor.Black && to.Row == 7) return true;
+
+            return false;
+        }
+
+        public bool MovePiece(Position from, Position to, PieceType promotionType = PieceType.Queen)
         {
             Piece? piece = Board[from];
             if (piece == null || piece.Color != CurrentPlayer)
@@ -83,13 +97,19 @@ namespace ChessCore
 
             piece.HasMoved = true;
 
-            // Promotion (Auto-promote to Queen for now)
+            // Promotion
             if (piece.Type == PieceType.Pawn)
             {
                 if ((piece.Color == PlayerColor.White && to.Row == 0) ||
                     (piece.Color == PlayerColor.Black && to.Row == 7))
                 {
-                    Board[to] = new Queen(piece.Color);
+                    Board[to] = promotionType switch
+                    {
+                        PieceType.Rook => new Rook(piece.Color),
+                        PieceType.Bishop => new Bishop(piece.Color),
+                        PieceType.Knight => new Knight(piece.Color),
+                        _ => new Queen(piece.Color)
+                    };
                 }
             }
 

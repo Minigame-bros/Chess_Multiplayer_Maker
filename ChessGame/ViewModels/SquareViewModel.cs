@@ -50,6 +50,13 @@ namespace ChessGame.ViewModels
             set { _isHighlighted = value; OnPropertyChanged(); }
         }
 
+        private bool _isLastMove;
+        public bool IsLastMove
+        {
+            get => _isLastMove;
+            set { _isLastMove = value; OnPropertyChanged(); }
+        }
+
         public SquareViewModel(Position pos, Brush bg)
         {
             _position = pos;

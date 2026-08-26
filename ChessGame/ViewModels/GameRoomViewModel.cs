@@ -6,6 +6,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Text.Json;
 using System.Collections.Generic;
+using System.Windows.Threading;
+using System;
 using ChessCore;
 using ChessGame.Models;
 
@@ -27,6 +29,51 @@ namespace ChessGame.ViewModels
         private bool _isBoardRotated = false;
         private bool _isRematch = false;
         private int _playerCount = 1;
+        private DispatcherTimer? _gameTimer;
+        
+        public string MyName { get; private set; } = "Player 1";
+        public string OpponentName { get; private set; } = "Player 2";
+        
+        private string _myNameDisplay = "";
+        public string MyNameDisplay { get => _myNameDisplay; set { _myNameDisplay = value; OnPropertyChanged(); } }
+        private string _opponentNameDisplay = "";
+        public string OpponentNameDisplay { get => _opponentNameDisplay; set { _opponentNameDisplay = value; OnPropertyChanged(); } }
+
+        private int _gameTimeMinutes = 10;
+        public int GameTimeMinutes
+        {
+            get => _gameTimeMinutes;
+            set
+            {
+                if (value < 0) value = 0;
+                if (value > 30) value = 30;
+                _gameTimeMinutes = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private int _timeIncrementSeconds = 0;
+        public int TimeIncrementSeconds
+        {
+            get => _timeIncrementSeconds;
+            set
+            {
+                if (value < 0) value = 0;
+                if (value > 60) value = 60;
+                _timeIncrementSeconds = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private TimeSpan _whiteTime;
+        private TimeSpan _blackTime;
+        private bool _isTimeInfinite = false;
+
+        private string _myTimeDisplay = "";
+        public string MyTimeDisplay { get => _myTimeDisplay; set { _myTimeDisplay = value; OnPropertyChanged(); } }
+
+        private string _opponentTimeDisplay = "";
+        public string OpponentTimeDisplay { get => _opponentTimeDisplay; set { _opponentTimeDisplay = value; OnPropertyChanged(); } }
         
         private GameStatus _currentStatus = GameStatus.Waiting;
         public GameStatus CurrentStatus
@@ -65,6 +112,9 @@ namespace ChessGame.ViewModels
         private Brush _darkSquareColor = new SolidColorBrush(Color.FromRgb(181, 136, 99));  // Classic dark wood
         private Brush _selectedColor = new SolidColorBrush(Color.FromArgb(128, 20, 200, 20)); // Semi-transparent green
         private Brush _highlightColor = new SolidColorBrush(Color.FromArgb(128, 200, 20, 20)); // Semi-transparent red
+
+        private Position? _lastMoveFrom;
+        private Position? _lastMoveTo;
 
         private SquareViewModel? _selectedSquare;
 
@@ -160,12 +210,30 @@ namespace ChessGame.ViewModels
         public ObservableCollection<string> ColumnLabels { get; } = new ObservableCollection<string>();
         public ObservableCollection<string> RowLabels { get; } = new ObservableCollection<string>();
 
+        private bool _isPromotionDialogVisible = false;
+        public bool IsPromotionDialogVisible
+        {
+            get => _isPromotionDialogVisible;
+            set { _isPromotionDialogVisible = value; OnPropertyChanged(); }
+        }
+
+        private Brush _promotionPieceColor = Brushes.White;
+        public Brush PromotionPieceColor
+        {
+            get => _promotionPieceColor;
+            set { _promotionPieceColor = value; OnPropertyChanged(); }
+        }
+
+        private Position? _pendingPromotionFrom;
+        private Position? _pendingPromotionTo;
+
         public ICommand SquareClickCommand { get; }
         public ICommand SendChatCommand { get; }
         public ICommand LeaveRoomCommand { get; }
         public ICommand ReturnToCurrentGameCommand { get; }
         public ICommand StartGameCommand { get; }
         public ICommand ReviewMoveCommand { get; }
+        public ICommand PromoteCommand { get; }
 
         public GameRoomViewModel()
         {
@@ -179,6 +247,15 @@ namespace ChessGame.ViewModels
             ReturnToCurrentGameCommand = new RelayCommand(OnReturnToCurrentGame);
             StartGameCommand = new RelayCommand(OnStartGame);
             ReviewMoveCommand = new RelayCommand(OnReviewMove);
+            PromoteCommand = new RelayCommand(OnPromote);
+
+            MyName = MainViewModel.Instance.PlayerName;
+            MyNameDisplay = MyName;
+            OpponentNameDisplay = "Đang chờ...";
+
+            _gameTimer = new DispatcherTimer();
+            _gameTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _gameTimer.Tick += GameTimer_Tick;
 
             if (IsHotseatMode)
             {
@@ -207,6 +284,49 @@ namespace ChessGame.ViewModels
         private void OnReturnToCurrentGame(object? parameter)
         {
             SelectedHistoryMove = null;
+        }
+
+        private void OnPromote(object? parameter)
+        {
+            if (parameter is string pieceTypeStr && int.TryParse(pieceTypeStr, out int pieceTypeInt))
+            {
+                PieceType promotionType = (PieceType)pieceTypeInt;
+                IsPromotionDialogVisible = false;
+
+                if (_pendingPromotionFrom.HasValue && _pendingPromotionTo.HasValue)
+                {
+                    var from = _pendingPromotionFrom.Value;
+                    var to = _pendingPromotionTo.Value;
+                    
+                    string san = GenerateSan(from, to);
+                    string promoChar = promotionType switch
+                    {
+                        PieceType.Rook => "R",
+                        PieceType.Bishop => "B",
+                        PieceType.Knight => "N",
+                        _ => "Q"
+                    };
+                    san += "=" + promoChar;
+
+                    if (_game.MovePiece(from, to, promotionType))
+                    {
+                        ClearSelection();
+                        HandleTimeIncrement(PlayerColor.White == _game.CurrentPlayer ? PlayerColor.Black : PlayerColor.White);
+                        RecordMove(san, from, to);
+                        SyncBoardToUI();
+
+                        if (_myColor != PlayerColor.None || MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient)
+                        {
+                            var move = new MoveAction { FromRow = from.Row, FromCol = from.Col, ToRow = to.Row, ToCol = to.Col, PromotionPieceType = (int)promotionType };
+                            var msg = new NetworkMessage { Type = MessageType.Move, Payload = JsonSerializer.Serialize(move) };
+                            if (MainViewModel.Instance.IsMultiplayerHost) _ = _network.BroadcastMessageAsync(msg);
+                            else _ = _network.SendMessageAsync(msg);
+                        }
+                    }
+                    _pendingPromotionFrom = null;
+                    _pendingPromotionTo = null;
+                }
+            }
         }
 
         private void OnReviewMove(object? parameter)
@@ -252,9 +372,16 @@ namespace ChessGame.ViewModels
 
             if (IsMultiplayerMode)
             {
-                _ = _network.BroadcastMessageAsync(new NetworkMessage { Type = MessageType.StartGame, Payload = ((int)_myColor).ToString() });
+                var payload = new StartGamePayload 
+                { 
+                    HostColor = (int)_myColor,
+                    GameTimeMinutes = GameTimeMinutes,
+                    TimeIncrementSeconds = TimeIncrementSeconds
+                };
+                _ = _network.BroadcastMessageAsync(new NetworkMessage { Type = MessageType.StartGame, Payload = JsonSerializer.Serialize(payload) });
                 ChatMessages.Add("[Hệ thống] Trận đấu bắt đầu!");
             }
+            StartTimers();
         }
 
         private void SetupNetworking()
@@ -409,8 +536,10 @@ namespace ChessGame.ViewModels
                             OnPropertyChanged(nameof(CanStartGame));
                         }
 
-                        var res = new JoinResponse { Success = true, AssignedColor = assignedColor };
+                        var res = new JoinResponse { Success = true, AssignedColor = assignedColor, HostName = MainViewModel.Instance.PlayerName };
                         _ = _network.SendMessageAsync(new NetworkMessage { Type = MessageType.JoinResponse, Payload = JsonSerializer.Serialize(res) }, sender);
+                        OpponentName = req.PlayerName;
+                        OpponentNameDisplay = OpponentName;
                         ChatMessages.Add($"[Hệ thống] {req.PlayerName} đã tham gia {(assignedColor == 2 ? "với tư cách Khán giả" : "")}.");
                         SendGameStateSync(sender);
                     }
@@ -434,6 +563,8 @@ namespace ChessGame.ViewModels
                                 InitializeSquares();
                                 SyncBoardToUI();
                             }
+                            OpponentName = res.HostName;
+                            OpponentNameDisplay = OpponentName;
                             ChatMessages.Add($"[Hệ thống] Đã vào phòng. Bạn cầm quân " + (_myColor == PlayerColor.White ? "Trắng" : "Đen"));
                         }
                     }
@@ -465,11 +596,14 @@ namespace ChessGame.ViewModels
                 }
                 else if (msg.Type == MessageType.StartGame)
                 {
-                    if (int.TryParse(msg.Payload, out int hostColorInt))
+                    var payload = JsonSerializer.Deserialize<StartGamePayload>(msg.Payload);
+                    if (payload != null)
                     {
-                        var hostColor = (PlayerColor)hostColorInt;
+                        var hostColor = (PlayerColor)payload.HostColor;
                         _myColor = hostColor == PlayerColor.White ? PlayerColor.Black : PlayerColor.White;
                         _isBoardRotated = _myColor == PlayerColor.Black;
+                        GameTimeMinutes = payload.GameTimeMinutes;
+                        TimeIncrementSeconds = payload.TimeIncrementSeconds;
                     }
 
                     // Always reset when a new game starts
@@ -481,6 +615,7 @@ namespace ChessGame.ViewModels
                     
                     CurrentStatus = GameStatus.Playing;
                     ChatMessages.Add("[Hệ thống] Trận đấu bắt đầu!");
+                    StartTimers();
                 }
                 else if (msg.Type == MessageType.Move)
                 {
@@ -489,10 +624,24 @@ namespace ChessGame.ViewModels
                     {
                         var from = new Position(move.FromRow, move.FromCol);
                         var to = new Position(move.ToRow, move.ToCol);
+                        var promotionType = (PieceType)move.PromotionPieceType;
                         
                         string san = GenerateSan(from, to);
-                        _game.MovePiece(from, to);
-                        RecordMove(san);
+                        if (_game.IsPromotionMove(from, to))
+                        {
+                             string promoChar = promotionType switch
+                             {
+                                 PieceType.Rook => "R",
+                                 PieceType.Bishop => "B",
+                                 PieceType.Knight => "N",
+                                 _ => "Q"
+                             };
+                             san += "=" + promoChar;
+                        }
+
+                        _game.MovePiece(from, to, promotionType);
+                        HandleTimeIncrement(PlayerColor.White == _game.CurrentPlayer ? PlayerColor.Black : PlayerColor.White);
+                        RecordMove(san, from, to);
 
                         if (!IsViewingHistory) SyncBoardToUI();
                     }
@@ -565,6 +714,8 @@ namespace ChessGame.ViewModels
                 {
                     sq.PieceText = "";
                 }
+                
+                sq.IsLastMove = (sq.Position == _lastMoveFrom || sq.Position == _lastMoveTo);
             }
 
             string turnColor = _game.CurrentPlayer == PlayerColor.White ? "Trắng" : "Đen";
@@ -614,6 +765,16 @@ namespace ChessGame.ViewModels
                 }
                 sq.IsSelected = false;
                 sq.IsHighlighted = false;
+                
+                if (SelectedHistoryMove != null)
+                {
+                    sq.IsLastMove = (sq.Position.Row == SelectedHistoryMove.FromRow && sq.Position.Col == SelectedHistoryMove.FromCol) ||
+                                    (sq.Position.Row == SelectedHistoryMove.ToRow && sq.Position.Col == SelectedHistoryMove.ToCol);
+                }
+                else
+                {
+                    sq.IsLastMove = false;
+                }
             }
             
             StatusText = $"Đang xem lại nước đi cũ... Lượt: {(nextTurn == PlayerColor.White ? "Trắng" : "Đen")}";
@@ -642,17 +803,27 @@ namespace ChessGame.ViewModels
                     {
                         var from = _selectedSquare.Position;
                         var to = clickedSquare.Position;
+
+                        if (_game.IsPromotionMove(from, to))
+                        {
+                            _pendingPromotionFrom = from;
+                            _pendingPromotionTo = to;
+                            PromotionPieceColor = _game.CurrentPlayer == PlayerColor.White ? Brushes.White : Brushes.Black;
+                            IsPromotionDialogVisible = true;
+                            return;
+                        }
                         
                         string san = GenerateSan(from, to);
 
                         if (_game.MovePiece(from, to))
                         {
                             ClearSelection();
-                            RecordMove(san);
+                            HandleTimeIncrement(PlayerColor.White == _game.CurrentPlayer ? PlayerColor.Black : PlayerColor.White);
+                            RecordMove(san, from, to);
                             SyncBoardToUI();
                             if (_myColor != PlayerColor.None)
                             {
-                                var move = new MoveAction { FromRow = from.Row, FromCol = from.Col, ToRow = to.Row, ToCol = to.Col };
+                                var move = new MoveAction { FromRow = from.Row, FromCol = from.Col, ToRow = to.Row, ToCol = to.Col, PromotionPieceType = 5 };
                                 var msg = new NetworkMessage { Type = MessageType.Move, Payload = JsonSerializer.Serialize(move) };
                                 if (MainViewModel.Instance.IsMultiplayerHost) _ = _network.BroadcastMessageAsync(msg);
                                 else _ = _network.SendMessageAsync(msg);
@@ -726,8 +897,11 @@ namespace ChessGame.ViewModels
             return san;
         }
 
-        private void RecordMove(string san)
+        private void RecordMove(string san, Position from, Position to)
         {
+            _lastMoveFrom = from;
+            _lastMoveTo = to;
+            
             // After move is made, check if checkmate or check to append to san
             if (_game.IsCheckmate) san += "#";
             else if (_game.IsCheck) san += "+";
@@ -749,6 +923,10 @@ namespace ChessGame.ViewModels
             {
                 MoveNumber = _game.HalfmoveClock, // Not strictly accurate, but we manage TurnRecord count
                 SanNotation = san,
+                FromRow = from.Row,
+                FromCol = from.Col,
+                ToRow = to.Row,
+                ToCol = to.Col,
                 BoardSnapshot = snapshot,
                 NextTurn = _game.CurrentPlayer
             };
@@ -799,6 +977,107 @@ namespace ChessGame.ViewModels
             var msg = new NetworkMessage { Type = MessageType.GameState, Payload = JsonSerializer.Serialize(sync) };
             if (targetClient != null) _ = _network.SendMessageAsync(msg, targetClient);
             else _ = _network.BroadcastMessageAsync(msg);
+        }
+
+        private DateTime _lastTickTime;
+
+        private void StartTimers()
+        {
+            if (GameTimeMinutes == 0)
+            {
+                _isTimeInfinite = true;
+                MyTimeDisplay = "∞";
+                OpponentTimeDisplay = "∞";
+            }
+            else
+            {
+                _isTimeInfinite = false;
+                _whiteTime = TimeSpan.FromMinutes(GameTimeMinutes);
+                _blackTime = TimeSpan.FromMinutes(GameTimeMinutes);
+                UpdateTimeDisplay();
+                _lastTickTime = DateTime.UtcNow;
+                _gameTimer?.Start();
+            }
+        }
+
+        private void GameTimer_Tick(object? sender, EventArgs e)
+        {
+            if (CurrentStatus != GameStatus.Playing || _isTimeInfinite || IsViewingHistory) return;
+
+            DateTime now = DateTime.UtcNow;
+            TimeSpan elapsed = now - _lastTickTime;
+            _lastTickTime = now;
+
+            if (_game.CurrentPlayer == PlayerColor.White)
+            {
+                _whiteTime = _whiteTime.Subtract(elapsed);
+                if (_whiteTime.TotalMilliseconds <= 0)
+                {
+                    _whiteTime = TimeSpan.Zero;
+                    HandleTimeOut(PlayerColor.White);
+                }
+            }
+            else
+            {
+                _blackTime = _blackTime.Subtract(elapsed);
+                if (_blackTime.TotalMilliseconds <= 0)
+                {
+                    _blackTime = TimeSpan.Zero;
+                    HandleTimeOut(PlayerColor.Black);
+                }
+            }
+            UpdateTimeDisplay();
+        }
+
+        private void HandleTimeOut(PlayerColor timedOutPlayer)
+        {
+            _gameTimer?.Stop();
+            CurrentStatus = GameStatus.Finished;
+            OnPropertyChanged(nameof(StartButtonText));
+            
+            string winner = timedOutPlayer == PlayerColor.White ? "ĐEN" : "TRẮNG";
+            StatusText = $"HẾT THỜI GIAN! {winner} THẮNG!";
+        }
+
+        private void HandleTimeIncrement(PlayerColor justMovedPlayer)
+        {
+            if (_isTimeInfinite || CurrentStatus != GameStatus.Playing) return;
+
+            _lastTickTime = DateTime.UtcNow;
+
+            if (TimeIncrementSeconds > 0)
+            {
+                if (justMovedPlayer == PlayerColor.White)
+                {
+                    _whiteTime = _whiteTime.Add(TimeSpan.FromSeconds(TimeIncrementSeconds));
+                }
+                else
+                {
+                    _blackTime = _blackTime.Add(TimeSpan.FromSeconds(TimeIncrementSeconds));
+                }
+            }
+            UpdateTimeDisplay();
+        }
+
+        private void UpdateTimeDisplay()
+        {
+            if (_isTimeInfinite) return;
+
+            string FormatTime(TimeSpan t) => t.Minutes > 0 ? $"{t.Minutes:D2}:{t.Seconds:D2}" : $"{t.Seconds:D2}.{t.Milliseconds / 100:D1}";
+
+            string whiteDisplay = FormatTime(_whiteTime);
+            string blackDisplay = FormatTime(_blackTime);
+
+            if (_myColor == PlayerColor.Black)
+            {
+                MyTimeDisplay = blackDisplay;
+                OpponentTimeDisplay = whiteDisplay;
+            }
+            else
+            {
+                MyTimeDisplay = whiteDisplay;
+                OpponentTimeDisplay = blackDisplay;
+            }
         }
 
         private string GetPieceUnicode(Piece p)

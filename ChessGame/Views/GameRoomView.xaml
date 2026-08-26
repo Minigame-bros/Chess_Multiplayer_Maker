@@ -20,86 +20,140 @@
 
         <!-- Board Area -->
         <Border Grid.Column="0" BorderBrush="#555" BorderThickness="2" Margin="10" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <Viewbox Stretch="Uniform">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /> <!-- Opponent Info -->
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" /> <!-- My Info -->
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                <!-- Row Labels (Left) -->
-                <ItemsControl Grid.Row="0" Grid.Column="0" ItemsSource="{Binding RowLabels}" Width="30">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Rows="8" Columns="1" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" Foreground="White" FontSize="16" FontWeight="Bold" 
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    <!-- Opponent Info -->
+                    <Grid Grid.Row="0" Grid.Column="1" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding OpponentNameDisplay}" Foreground="White" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" Background="#444" CornerRadius="5" Padding="10,5">
+                            <TextBlock Text="{Binding OpponentTimeDisplay}" Foreground="White" FontSize="20" FontWeight="Bold" FontFamily="Consolas"/>
+                        </Border>
+                    </Grid>
 
-                <!-- Chess Board -->
-                <ItemsControl Grid.Row="0" Grid.Column="1" ItemsSource="{Binding Squares}" Width="575" Height="575">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Rows="8" Columns="8" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border x:Name="SquareBorder" Background="{Binding Background}" BorderThickness="0" Margin="0">
-                                <Button Command="{Binding DataContext.SquareClickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
-                                        CommandParameter="{Binding}" 
-                                        Background="Transparent" BorderThickness="0">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                    <Grid>
-                                        <!-- Highlight circle for valid moves -->
-                                        <Ellipse x:Name="HighlightCircle" Fill="#8020C820" Width="24" Height="24" Visibility="{Binding IsHighlighted, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                        <!-- Piece text -->
-                                        <TextBlock Text="{Binding PieceText}" Foreground="{Binding PieceColor}" 
-                                                   FontSize="50" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI Symbol"/>
-                                    </Grid>
-                                </Button>
-                            </Border>
-                            <DataTemplate.Triggers>
-                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                    <Setter TargetName="SquareBorder" Property="BorderBrush" Value="Yellow" />
-                                    <Setter TargetName="SquareBorder" Property="BorderThickness" Value="3" />
-                                </DataTrigger>
-                            </DataTemplate.Triggers>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    <!-- Row Labels (Left) -->
+                    <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding RowLabels}" Width="30">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="8" Columns="1" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="White" FontSize="16" FontWeight="Bold" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                <!-- Column Labels (Bottom) -->
-                <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding ColumnLabels}" Height="30">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Rows="1" Columns="8" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" Foreground="White" FontSize="16" FontWeight="Bold" 
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Grid>
+                    <!-- Chess Board -->
+                    <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Squares}" Width="575" Height="575">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="8" Columns="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border x:Name="SquareBorder" Background="{Binding Background}" BorderThickness="0" Margin="0">
+                                    <Button Command="{Binding DataContext.SquareClickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
+                                            CommandParameter="{Binding}" 
+                                            Background="Transparent" BorderThickness="0">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                        <Grid>
+                                            <!-- Last move highlight -->
+                                            <Rectangle Fill="#80FFFF00" Visibility="{Binding IsLastMove, Converter={StaticResource BooleanToVisibilityConverter}}" IsHitTestVisible="False" />
+                                            <!-- Highlight circle for valid moves -->
+                                            <Ellipse x:Name="HighlightCircle" Fill="#8020C820" Width="24" Height="24" Visibility="{Binding IsHighlighted, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <!-- Piece text -->
+                                            <TextBlock Text="{Binding PieceText}" Foreground="{Binding PieceColor}" 
+                                                       FontSize="50" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI Symbol"/>
+                                        </Grid>
+                                    </Button>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter TargetName="SquareBorder" Property="BorderBrush" Value="Yellow" />
+                                        <Setter TargetName="SquareBorder" Property="BorderThickness" Value="3" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Column Labels (Bottom) -->
+                    <ItemsControl Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ColumnLabels}" Height="30">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1" Columns="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="White" FontSize="16" FontWeight="Bold" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- My Info -->
+                    <Grid Grid.Row="3" Grid.Column="1" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding MyNameDisplay}" Foreground="White" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" Background="#444" CornerRadius="5" Padding="10,5">
+                            <TextBlock Text="{Binding MyTimeDisplay}" Foreground="White" FontSize="20" FontWeight="Bold" FontFamily="Consolas"/>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Viewbox>
         </Border>
+
+        <!-- Promotion Overlay -->
+        <Grid Grid.Column="0" Background="#99000000" Visibility="{Binding IsPromotionDialogVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Panel.ZIndex="10">
+            <Border Background="#333" BorderBrush="#555" BorderThickness="2" CornerRadius="10" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Chọn quân để phong cấp:" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,20" HorizontalAlignment="Center"/>
+                    <UniformGrid Columns="4" Width="400" Height="100">
+                        <Button Command="{Binding PromoteCommand}" CommandParameter="5" Background="#444" BorderBrush="#555" Margin="5">
+                            <TextBlock Text="♕" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                        </Button>
+                        <Button Command="{Binding PromoteCommand}" CommandParameter="4" Background="#444" BorderBrush="#555" Margin="5">
+                            <TextBlock Text="♖" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                        </Button>
+                        <Button Command="{Binding PromoteCommand}" CommandParameter="3" Background="#444" BorderBrush="#555" Margin="5">
+                            <TextBlock Text="♗" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                        </Button>
+                        <Button Command="{Binding PromoteCommand}" CommandParameter="2" Background="#444" BorderBrush="#555" Margin="5">
+                            <TextBlock Text="♘" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                        </Button>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
         <!-- Sidebar for settings & info -->
         <Border Grid.Column="1" Background="#333" Padding="15">
             <Grid>
@@ -134,6 +188,27 @@
                                     <ComboBoxItem Content="Xanh lá/Trắng" />
                                     <ComboBoxItem Content="Xám/Trắng" />
                                 </ComboBox>
+                                
+                                <!-- Time Settings (Host Only) -->
+                                <StackPanel Visibility="{Binding CanStartGame, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,15,0,0">
+                                    <TextBlock Text="Cài đặt thời gian:" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <Grid Margin="0,0,0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Thời gian (phút, 0=∞):" Foreground="White" VerticalAlignment="Center" FontSize="12"/>
+                                        <TextBox Grid.Column="1" Text="{Binding GameTimeMinutes, UpdateSourceTrigger=PropertyChanged}" Width="40" Margin="5,0,0,0" TextAlignment="Center"/>
+                                    </Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Thêm (giây/nước):" Foreground="White" VerticalAlignment="Center" FontSize="12"/>
+                                        <TextBox Grid.Column="1" Text="{Binding TimeIncrementSeconds, UpdateSourceTrigger=PropertyChanged}" Width="40" Margin="5,0,0,0" TextAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </Popup>

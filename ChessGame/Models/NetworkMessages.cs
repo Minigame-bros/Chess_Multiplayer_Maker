@@ -30,6 +30,14 @@ namespace ChessGame.Models
         public bool Success { get; set; }
         // 0 = White, 1 = Black, 2 = Spectator
         public int AssignedColor { get; set; } 
+        public string HostName { get; set; } = "";
+    }
+
+    public class StartGamePayload
+    {
+        public int HostColor { get; set; }
+        public int GameTimeMinutes { get; set; }
+        public int TimeIncrementSeconds { get; set; }
     }
 
     public class MoveAction
@@ -38,6 +46,7 @@ namespace ChessGame.Models
         public int FromCol { get; set; }
         public int ToRow { get; set; }
         public int ToCol { get; set; }
+        public int PromotionPieceType { get; set; } = 5; // 5 = Queen
     }
 
     public class ChatMessage

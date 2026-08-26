@@ -8,6 +8,11 @@ namespace ChessGame.Models
         public int MoveNumber { get; set; }
         public string SanNotation { get; set; } = string.Empty;
 
+        public int FromRow { get; set; }
+        public int FromCol { get; set; }
+        public int ToRow { get; set; }
+        public int ToCol { get; set; }
+
         // Snapshot of the pieces at this point in time
         public List<PieceDto> BoardSnapshot { get; set; } = new List<PieceDto>();
 
