@@ -276,6 +276,7 @@ namespace ChessGame.ViewModels
             {
                 CurrentStatus = GameStatus.Playing;
                 StatusText = "Lượt: Trắng";
+                Services.AudioService.Instance.PlayGameStartSound();
             }
             else
             {
@@ -293,6 +294,7 @@ namespace ChessGame.ViewModels
             
             CurrentStatus = GameStatus.Playing;
             StatusText = "Lượt: Trắng";
+            Services.AudioService.Instance.PlayGameStartSound();
             StartTimers();
         }
 
@@ -397,6 +399,7 @@ namespace ChessGame.ViewModels
             _isRematch = true; // Next time it will be a rematch unless opponent leaves
             OnPropertyChanged(nameof(StartButtonText));
             SyncBoardToUI();
+            Services.AudioService.Instance.PlayGameStartSound();
 
             if (IsMultiplayerMode)
             {
@@ -647,6 +650,7 @@ namespace ChessGame.ViewModels
                     
                     CurrentStatus = GameStatus.Playing;
                     ChatMessages.Add("[Hệ thống] Trận đấu bắt đầu!");
+                    Services.AudioService.Instance.PlayGameStartSound();
                     StartTimers();
                 }
                 else if (msg.Type == MessageType.Move)
@@ -874,6 +878,10 @@ namespace ChessGame.ViewModels
                                 _ = HandleBotTurnAsync();
                             }
                         }
+                        else
+                        {
+                            Services.AudioService.Instance.PlayInvalidMoveSound();
+                        }
                     }
                     else
                     {
@@ -1012,6 +1020,13 @@ namespace ChessGame.ViewModels
             if (_game.IsCheckmate) san += "#";
             else if (_game.IsCheck) san += "+";
 
+            if (san.Contains("#") || _game.IsStalemate) Services.AudioService.Instance.PlayGameEndSound();
+            else if (san.Contains("+")) Services.AudioService.Instance.PlayCheckSound();
+            else if (san.Contains("=")) Services.AudioService.Instance.PlayPromotionSound();
+            else if (san.Contains("O-O")) Services.AudioService.Instance.PlayCastleSound();
+            else if (san.Contains("x")) Services.AudioService.Instance.PlayCaptureSound();
+            else Services.AudioService.Instance.PlayMoveSound();
+
             var snapshot = new List<PieceDto>();
             for (int r = 0; r < 8; r++)
             {
@@ -1143,6 +1158,7 @@ namespace ChessGame.ViewModels
             
             string winner = timedOutPlayer == PlayerColor.White ? "ĐEN" : "TRẮNG";
             StatusText = $"HẾT THỜI GIAN! {winner} THẮNG!";
+            Services.AudioService.Instance.PlayGameEndSound();
         }
 
         private void HandleTimeIncrement(PlayerColor justMovedPlayer)
