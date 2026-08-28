@@ -12,6 +12,7 @@ namespace ChessGame.Services
         public static AudioService Instance => _instance;
 
         private readonly Dictionary<string, MediaPlayer> _players = new Dictionary<string, MediaPlayer>();
+        private MediaPlayer _keepAlivePlayer;
 
         private AudioService()
         {
@@ -30,6 +31,27 @@ namespace ChessGame.Services
                     LoadSound("Castle", Path.Combine(basePath, "nhap_thanh_chess_dot_com.wav"));
                     LoadSound("InvalidMove", Path.Combine(basePath, "nuoc_di_khong_hop_le_chess_dot_com.wav"));
                     LoadSound("Promotion", Path.Combine(basePath, "phong_cap_chess_dot_com.wav"));
+
+                    // HACK: Khởi tạo MediaPlayer chạy ngầm liên tục để chống sleep driver âm thanh
+                    try
+                    {
+                        _keepAlivePlayer = new MediaPlayer();
+                        // Để volume = 0.01 (1%) để hệ điều hành không tối ưu hóa ngắt luồng, nhưng tai người gần như không nghe thấy
+                        _keepAlivePlayer.Volume = 0.01;
+                        _keepAlivePlayer.Open(new Uri(Path.Combine(basePath, "di_chuyen_quan_chess_dot_com.wav"), UriKind.Absolute));
+                        
+                        _keepAlivePlayer.MediaEnded += (s, e) =>
+                        {
+                            _keepAlivePlayer.Position = TimeSpan.Zero;
+                            _keepAlivePlayer.Play();
+                        };
+                        
+                        _keepAlivePlayer.Play();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[AudioService] KeepAlive player failed: {ex.Message}");
+                    }
                 });
             }
         }
