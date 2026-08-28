@@ -1015,6 +1015,11 @@ namespace ChessGame.ViewModels
             Piece? p = _game.Board[from];
             if (p == null) return "";
 
+            if (p.Type == PieceType.King && System.Math.Abs(to.Col - from.Col) == 2)
+            {
+                return to.Col > from.Col ? "O-O" : "O-O-O";
+            }
+
             string san = "";
             if (p.Type != PieceType.Pawn)
             {
@@ -1027,6 +1032,46 @@ namespace ChessGame.ViewModels
                     PieceType.Knight => "N",
                     _ => ""
                 };
+
+                if (p.Type != PieceType.King)
+                {
+                    var otherPieces = new List<Position>();
+                    for (int r = 0; r < 8; r++)
+                    {
+                        for (int c = 0; c < 8; c++)
+                        {
+                            var pos = new Position(r, c);
+                            if (pos == from) continue;
+                            Piece? other = _game.Board[pos];
+                            if (other != null && other.Type == p.Type && other.Color == p.Color)
+                            {
+                                if (_game.GetLegalMoves(other, pos).Contains(to))
+                                {
+                                    otherPieces.Add(pos);
+                                }
+                            }
+                        }
+                    }
+
+                    if (otherPieces.Count > 0)
+                    {
+                        bool sameCol = otherPieces.Any(op => op.Col == from.Col);
+                        bool sameRow = otherPieces.Any(op => op.Row == from.Row);
+
+                        if (!sameCol)
+                        {
+                            san += (char)('a' + from.Col);
+                        }
+                        else if (!sameRow)
+                        {
+                            san += (8 - from.Row).ToString();
+                        }
+                        else
+                        {
+                            san += $"{(char)('a' + from.Col)}{8 - from.Row}";
+                        }
+                    }
+                }
             }
 
             bool isCapture = _game.Board[to] != null;
