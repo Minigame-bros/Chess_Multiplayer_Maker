@@ -57,6 +57,13 @@ namespace ChessGame.ViewModels
             set { _isLastMove = value; OnPropertyChanged(); }
         }
 
+        private bool _isDragging;
+        public bool IsDragging
+        {
+            get => _isDragging;
+            set { _isDragging = value; OnPropertyChanged(); }
+        }
+
         public SquareViewModel(Position pos, Brush bg)
         {
             _position = pos;

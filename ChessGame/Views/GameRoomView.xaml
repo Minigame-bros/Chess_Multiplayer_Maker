@@ -61,45 +61,43 @@
                     </ItemsControl>
 
                     <!-- Chess Board -->
-                    <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Squares}" Width="575" Height="575">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Rows="8" Columns="8" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border x:Name="SquareBorder" Background="{Binding Background}" BorderThickness="0" Margin="0">
-                                    <Button Command="{Binding DataContext.SquareClickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
-                                            CommandParameter="{Binding}" 
-                                            Background="Transparent" BorderThickness="0">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}">
-                                                    <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                                                </Border>
-                                            </ControlTemplate>
-                                        </Button.Template>
-                                        <Grid>
+                    <Grid Grid.Row="1" Grid.Column="1" x:Name="BoardContainer" MouseMove="BoardContainer_MouseMove" MouseLeftButtonUp="BoardContainer_MouseLeftButtonUp">
+                        <ItemsControl x:Name="BoardItemsControl" ItemsSource="{Binding Squares}" Width="575" Height="575">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="8" Columns="8" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="SquareBorder" Background="{Binding Background}" BorderThickness="0" Margin="0"
+                                            PreviewMouseLeftButtonDown="Square_PreviewMouseLeftButtonDown">
+                                        <Grid Background="Transparent">
                                             <!-- Last move highlight -->
                                             <Rectangle Fill="#80FFFF00" Visibility="{Binding IsLastMove, Converter={StaticResource BooleanToVisibilityConverter}}" IsHitTestVisible="False" />
                                             <!-- Highlight circle for valid moves -->
                                             <Ellipse x:Name="HighlightCircle" Fill="#8020C820" Width="24" Height="24" Visibility="{Binding IsHighlighted, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             <!-- Piece text -->
-                                            <TextBlock Text="{Binding PieceText}" Foreground="{Binding PieceColor}" 
+                                            <TextBlock x:Name="PieceText" Text="{Binding PieceText}" Foreground="{Binding PieceColor}" 
                                                        FontSize="50" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI Symbol"/>
                                         </Grid>
-                                    </Button>
-                                </Border>
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                        <Setter TargetName="SquareBorder" Property="BorderBrush" Value="Yellow" />
-                                        <Setter TargetName="SquareBorder" Property="BorderThickness" Value="3" />
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter TargetName="SquareBorder" Property="BorderBrush" Value="Yellow" />
+                                            <Setter TargetName="SquareBorder" Property="BorderThickness" Value="3" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsDragging}" Value="True">
+                                            <Setter TargetName="PieceText" Property="Opacity" Value="0.3" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Canvas x:Name="DragCanvas" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="10">
+                            <TextBlock x:Name="DragPieceText" FontSize="50" FontFamily="Segoe UI Symbol"/>
+                        </Canvas>
+                    </Grid>
 
                     <!-- Column Labels (Bottom) -->
                     <ItemsControl Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ColumnLabels}" Height="30">

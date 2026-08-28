@@ -898,6 +898,41 @@ namespace ChessGame.ViewModels
             }
         }
 
+        public void HandleDragDrop(SquareViewModel source, SquareViewModel target)
+        {
+            if (_game.IsGameOver || !_isMyTurn || IsViewingHistory || CurrentStatus != GameStatus.Playing) return;
+
+            Piece? p = _game.Board[source.Position];
+            if (p != null && p.Color == _game.CurrentPlayer && (_myColor == PlayerColor.None || p.Color == _myColor))
+            {
+                var validMoves = _game.GetLegalMoves(p, source.Position);
+                if (validMoves.Contains(target.Position))
+                {
+                    ClearSelection();
+                    _selectedSquare = source;
+                    target.IsHighlighted = true; 
+                    OnSquareClicked(target);
+                }
+            }
+        }
+
+        public void SelectForDrag(SquareViewModel square)
+        {
+            if (_game.IsGameOver || !_isMyTurn || IsViewingHistory || CurrentStatus != GameStatus.Playing) return;
+
+            Piece? p = _game.Board[square.Position];
+            if (p != null && p.Color == _game.CurrentPlayer && (_myColor == PlayerColor.None || p.Color == _myColor))
+            {
+                if (_selectedSquare != square)
+                {
+                    ClearSelection();
+                    _selectedSquare = square;
+                    square.IsSelected = true;
+                    ShowValidMoves(p, square.Position);
+                }
+            }
+        }
+
         private async Task HandleBotTurnAsync()
         {
             if (_bot == null || _game.CurrentPlayer == _myColor || CurrentStatus != GameStatus.Playing) return;
