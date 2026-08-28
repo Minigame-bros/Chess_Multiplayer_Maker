@@ -79,6 +79,12 @@ namespace ChessGame.ViewModels
         private string _opponentTimeDisplay = "";
         public string OpponentTimeDisplay { get => _opponentTimeDisplay; set { _opponentTimeDisplay = value; OnPropertyChanged(); } }
         
+        private string _myCapturedPiecesDisplay = "";
+        public string MyCapturedPiecesDisplay { get => _myCapturedPiecesDisplay; set { _myCapturedPiecesDisplay = value; OnPropertyChanged(); } }
+
+        private string _opponentCapturedPiecesDisplay = "";
+        public string OpponentCapturedPiecesDisplay { get => _opponentCapturedPiecesDisplay; set { _opponentCapturedPiecesDisplay = value; OnPropertyChanged(); } }
+        
         private GameStatus _currentStatus = GameStatus.Waiting;
         public GameStatus CurrentStatus
         {
@@ -778,6 +784,107 @@ namespace ChessGame.ViewModels
             }
             
             StatusText = status;
+            UpdateCapturedPiecesDisplay();
+        }
+        
+        private void UpdateCapturedPiecesDisplay()
+        {
+            var whitePieces = new Dictionary<PieceType, int>();
+            var blackPieces = new Dictionary<PieceType, int>();
+
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    var p = _game.Board[r, c];
+                    if (p != null)
+                    {
+                        var dict = p.Color == PlayerColor.White ? whitePieces : blackPieces;
+                        if (!dict.ContainsKey(p.Type)) dict[p.Type] = 0;
+                        dict[p.Type]++;
+                    }
+                }
+            }
+
+            string GetCapturedString(PlayerColor color)
+            {
+                var current = color == PlayerColor.White ? whitePieces : blackPieces;
+                int pawns = 8 - current.GetValueOrDefault(PieceType.Pawn, 0);
+                int knights = 2 - current.GetValueOrDefault(PieceType.Knight, 0);
+                int bishops = 2 - current.GetValueOrDefault(PieceType.Bishop, 0);
+                int rooks = 2 - current.GetValueOrDefault(PieceType.Rook, 0);
+                int queens = 1 - current.GetValueOrDefault(PieceType.Queen, 0);
+
+                if (queens < 0) { pawns += queens; queens = 0; }
+                if (rooks < 0) { pawns += rooks; rooks = 0; }
+                if (bishops < 0) { pawns += bishops; bishops = 0; }
+                if (knights < 0) { pawns += knights; knights = 0; }
+                if (pawns < 0) pawns = 0;
+
+                string s = "";
+                char pChar = color == PlayerColor.White ? '♙' : '♟';
+                char nChar = color == PlayerColor.White ? '♘' : '♞';
+                char bChar = color == PlayerColor.White ? '♗' : '♝';
+                char rChar = color == PlayerColor.White ? '♖' : '♜';
+                char qChar = color == PlayerColor.White ? '♕' : '♛';
+
+                s += new string(pChar, pawns);
+                s += new string(nChar, knights);
+                s += new string(bChar, bishops);
+                s += new string(rChar, rooks);
+                s += new string(qChar, queens);
+                
+                return s;
+            }
+
+            int GetMaterial(Dictionary<PieceType, int> current)
+            {
+                return current.GetValueOrDefault(PieceType.Pawn, 0) * 1 +
+                       current.GetValueOrDefault(PieceType.Knight, 0) * 3 +
+                       current.GetValueOrDefault(PieceType.Bishop, 0) * 3 +
+                       current.GetValueOrDefault(PieceType.Rook, 0) * 5 +
+                       current.GetValueOrDefault(PieceType.Queen, 0) * 9;
+            }
+
+            string whiteCaptured = GetCapturedString(PlayerColor.White);
+            string blackCaptured = GetCapturedString(PlayerColor.Black);
+            
+            int whiteScore = GetMaterial(whitePieces);
+            int blackScore = GetMaterial(blackPieces);
+
+            string GetDisplay(string capturedStr, int myScore, int opScore)
+            {
+                int diff = myScore - opScore;
+                if (diff > 0)
+                {
+                    return string.IsNullOrEmpty(capturedStr) ? $"+{diff}" : $"{capturedStr} +{diff}";
+                }
+                return capturedStr;
+            }
+
+            if (_myColor == PlayerColor.White)
+            {
+                MyCapturedPiecesDisplay = GetDisplay(blackCaptured, whiteScore, blackScore);
+                OpponentCapturedPiecesDisplay = GetDisplay(whiteCaptured, blackScore, whiteScore);
+            }
+            else if (_myColor == PlayerColor.Black)
+            {
+                MyCapturedPiecesDisplay = GetDisplay(whiteCaptured, blackScore, whiteScore);
+                OpponentCapturedPiecesDisplay = GetDisplay(blackCaptured, whiteScore, blackScore);
+            }
+            else 
+            {
+                if (_isBoardRotated)
+                {
+                    MyCapturedPiecesDisplay = GetDisplay(whiteCaptured, blackScore, whiteScore);
+                    OpponentCapturedPiecesDisplay = GetDisplay(blackCaptured, whiteScore, blackScore);
+                }
+                else
+                {
+                    MyCapturedPiecesDisplay = GetDisplay(blackCaptured, whiteScore, blackScore);
+                    OpponentCapturedPiecesDisplay = GetDisplay(whiteCaptured, blackScore, whiteScore);
+                }
+            }
         }
         
         private void SyncBoardToSnapshot(List<PieceDto> snapshot, PlayerColor nextTurn)
