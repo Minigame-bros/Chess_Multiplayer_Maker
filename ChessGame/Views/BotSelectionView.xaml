@@ -129,11 +129,14 @@
                                             </Grid.RowDefinitions>
 
                                             <!-- Avatar -->
-                                            <Ellipse x:Name="AvatarEllipse" Width="120" Height="120" HorizontalAlignment="Center" Margin="0,10,0,15" Stroke="#3A3A6A" StrokeThickness="3">
-                                                <Ellipse.Fill>
-                                                    <ImageBrush ImageSource="{Binding AvatarPath}" Stretch="UniformToFill"/>
-                                                </Ellipse.Fill>
-                                            </Ellipse>
+                                            <Border x:Name="AvatarBorder" Width="120" Height="120" HorizontalAlignment="Center" Margin="0,10,0,15" 
+                                                    BorderBrush="#3A3A6A" BorderThickness="3" CornerRadius="60" Background="#16162C">
+                                                <Image Source="{Binding AvatarPath}" Stretch="UniformToFill" Width="114" Height="114" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Image.Clip>
+                                                        <EllipseGeometry RadiusX="57" RadiusY="57" Center="57,57" />
+                                                    </Image.Clip>
+                                                </Image>
+                                            </Border>
 
                                             <!-- Name -->
                                             <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="24" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
@@ -151,7 +154,7 @@
                                         <Trigger Property="IsChecked" Value="True">
                                             <Setter TargetName="CardBorder" Property="BorderBrush" Value="#E6A817"/>
                                             <Setter TargetName="CardBorder" Property="Background" Value="#1E1E3A"/>
-                                            <Setter TargetName="AvatarEllipse" Property="Stroke" Value="#E6A817"/>
+                                            <Setter TargetName="AvatarBorder" Property="BorderBrush" Value="#E6A817"/>
                                             <Setter TargetName="CardBorder" Property="Effect">
                                                 <Setter.Value>
                                                     <DropShadowEffect Color="#E6A817" BlurRadius="25" ShadowDepth="0" Opacity="0.6"/>

@@ -304,11 +304,14 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     
-                    <Ellipse Width="80" Height="80" VerticalAlignment="Bottom" Stroke="#555" StrokeThickness="2">
-                        <Ellipse.Fill>
-                            <ImageBrush ImageSource="{Binding Bot.AvatarPath}" Stretch="UniformToFill"/>
-                        </Ellipse.Fill>
-                    </Ellipse>
+                    <Border Width="80" Height="80" VerticalAlignment="Bottom" 
+                            BorderBrush="#555" BorderThickness="2" CornerRadius="40" Background="Transparent">
+                        <Image Source="{Binding Bot.AvatarPath}" Stretch="UniformToFill" Width="76" Height="76" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Image.Clip>
+                                <EllipseGeometry RadiusX="38" RadiusY="38" Center="38,38" />
+                            </Image.Clip>
+                        </Image>
+                    </Border>
                     
                     <Grid Grid.Column="1" Margin="10,0,0,20" VerticalAlignment="Center" HorizontalAlignment="Left">
                         <!-- Speech bubble tail -->

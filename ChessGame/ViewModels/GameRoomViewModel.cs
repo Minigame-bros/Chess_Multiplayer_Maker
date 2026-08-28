@@ -296,7 +296,7 @@ namespace ChessGame.ViewModels
             _myColor = PlayerColor.White; // Player is always White vs Bot for now
             OpponentName = bot.Name;
             OpponentNameDisplay = $"{bot.Name} (Elo: {bot.Elo})";
-            BotSpeechText = bot.GetSpeech(GameState.Start);
+            BotSpeechText = bot.GetSpeech(GameState.Start, _game);
             
             CurrentStatus = GameStatus.Playing;
             StatusText = "Lượt: Trắng";
@@ -420,7 +420,7 @@ namespace ChessGame.ViewModels
             }
             else if (IsBotMode)
             {
-                BotSpeechText = _bot!.GetSpeech(GameState.Start);
+                BotSpeechText = _bot!.GetSpeech(GameState.Start, _game);
             }
             StartTimers();
         }
@@ -768,19 +768,19 @@ namespace ChessGame.ViewModels
                 CurrentStatus = GameStatus.Finished;
                 OnPropertyChanged(nameof(StartButtonText));
                 status = $"HẾT CỜ! {(_game.CurrentPlayer == PlayerColor.White ? "ĐEN" : "TRẮNG")} THẮNG!";
-                if (IsBotMode) BotSpeechText = _game.CurrentPlayer == _myColor ? _bot!.GetSpeech(GameState.Won) : _bot!.GetSpeech(GameState.Lost);
+                if (IsBotMode) BotSpeechText = _game.CurrentPlayer == _myColor ? _bot!.GetSpeech(GameState.Won, _game) : _bot!.GetSpeech(GameState.Lost, _game);
             }
             else if (_game.IsStalemate) 
             {
                 CurrentStatus = GameStatus.Finished;
                 OnPropertyChanged(nameof(StartButtonText));
                 status = "HÒA CỜ!";
-                if (IsBotMode) BotSpeechText = _bot!.GetSpeech(GameState.Draw);
+                if (IsBotMode) BotSpeechText = _bot!.GetSpeech(GameState.Draw, _game);
             }
             else if (_game.IsCheck) 
             {
                 status += " (ĐANG BỊ CHIẾU!)";
-                if (IsBotMode && _game.CurrentPlayer != _myColor) BotSpeechText = _bot!.GetSpeech(GameState.Checked);
+                if (IsBotMode && _game.CurrentPlayer != _myColor) BotSpeechText = _bot!.GetSpeech(GameState.Checked, _game);
             }
             
             StatusText = status;
@@ -981,7 +981,7 @@ namespace ChessGame.ViewModels
                             if (IsBotMode && CurrentStatus == GameStatus.Playing)
                             {
                                 bool wasCapture = san.Contains("x");
-                                if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured);
+                                if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game);
                                 _ = HandleBotTurnAsync();
                             }
                         }
@@ -1047,9 +1047,9 @@ namespace ChessGame.ViewModels
             _isBotThinking = true;
             OnPropertyChanged(nameof(_isMyTurn));
             
-            if (string.IsNullOrEmpty(BotSpeechText) || BotSpeechText == _bot.GetSpeech(GameState.Start))
+            if (string.IsNullOrEmpty(BotSpeechText) || MoveHistory.Count <= 1)
             {
-                BotSpeechText = _bot.GetSpeech(GameState.Thinking);
+                BotSpeechText = _bot.GetSpeech(GameState.Thinking, _game);
             }
 
             try
@@ -1082,7 +1082,7 @@ namespace ChessGame.ViewModels
 
                     if (CurrentStatus == GameStatus.Playing)
                     {
-                        BotSpeechText = _bot.GetSpeech(GameState.Moved);
+                        BotSpeechText = _bot.GetSpeech(GameState.Moved, _game, move);
                     }
                 });
             }

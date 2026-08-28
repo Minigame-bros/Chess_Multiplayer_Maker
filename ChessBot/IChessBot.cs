@@ -25,7 +25,7 @@ namespace ChessBot
         int Elo { get; }
 
         Task<BotMove> CalculateMoveAsync(Game game);
-        string GetSpeech(GameState state);
+        string GetSpeech(GameState state, Game game = null, BotMove? lastMove = null);
     }
 
     public enum GameState

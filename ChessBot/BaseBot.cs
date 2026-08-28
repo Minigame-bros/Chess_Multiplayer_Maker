@@ -12,6 +12,8 @@ namespace ChessBot
         public abstract string Description { get; }
         public abstract int Elo { get; }
 
+        protected static readonly Random Rnd = new Random();
+
         private UciEngine _engine;
         private bool _isDisposed;
 
@@ -53,7 +55,7 @@ namespace ChessBot
             return await _engine.GetBestMoveAsync(game);
         }
 
-        public abstract string GetSpeech(GameState state);
+        public abstract string GetSpeech(GameState state, Game game = null, BotMove? lastMove = null);
 
         public void Dispose()
         {
