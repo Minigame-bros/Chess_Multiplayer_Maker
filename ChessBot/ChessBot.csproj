@@ -15,4 +15,10 @@
     <Resource Include="Assets\Img\*.png" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Engine\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

@@ -32,12 +32,17 @@ namespace ChessBot
             if (!File.Exists(enginePath))
             {
                 // Fallback for development
-                string solutionDir = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
-                if (solutionDir.EndsWith("ChessGame") || solutionDir.EndsWith("ChessBot") || solutionDir.EndsWith("ChessCore"))
+                string currentDir = baseDir;
+                while (!string.IsNullOrEmpty(currentDir))
                 {
-                    solutionDir = Path.GetFullPath(Path.Combine(solutionDir, ".."));
+                    string potentialPath = Path.Combine(currentDir, "ChessBot", "Engine", engineName);
+                    if (File.Exists(potentialPath))
+                    {
+                        enginePath = potentialPath;
+                        break;
+                    }
+                    currentDir = Path.GetDirectoryName(currentDir);
                 }
-                enginePath = Path.Combine(solutionDir, "ChessBot", "Engine", engineName);
             }
 
             if (!File.Exists(enginePath))
