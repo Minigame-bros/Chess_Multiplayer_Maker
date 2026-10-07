@@ -64,7 +64,10 @@
                     </ItemsControl>
 
                     <!-- Chess Board -->
-                    <Grid Grid.Row="1" Grid.Column="1" x:Name="BoardContainer" MouseMove="BoardContainer_MouseMove" MouseLeftButtonUp="BoardContainer_MouseLeftButtonUp">
+                    <Grid Grid.Row="1" Grid.Column="1" x:Name="BoardContainer" Background="Transparent"
+                          MouseMove="BoardContainer_MouseMove" MouseLeftButtonUp="BoardContainer_MouseLeftButtonUp"
+                          PreviewMouseLeftButtonDown="BoardContainer_PreviewMouseLeftButtonDown"
+                          MouseRightButtonDown="BoardContainer_MouseRightButtonDown" MouseRightButtonUp="BoardContainer_MouseRightButtonUp">
                         <ItemsControl x:Name="BoardItemsControl" ItemsSource="{Binding Squares}" Width="575" Height="575">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -78,6 +81,8 @@
                                         <Grid Background="Transparent">
                                             <!-- Last move highlight -->
                                             <Rectangle Fill="#80FFFF00" Visibility="{Binding IsLastMove, Converter={StaticResource BooleanToVisibilityConverter}}" IsHitTestVisible="False" />
+                                            <!-- Right-click highlight -->
+                                            <Rectangle Fill="#99EB6150" Visibility="{Binding IsRightClicked, Converter={StaticResource BooleanToVisibilityConverter}}" IsHitTestVisible="False" />
                                             <!-- Highlight circle for valid moves -->
                                             <Ellipse x:Name="HighlightCircle" Fill="#8020C820" Width="24" Height="24" Visibility="{Binding IsHighlighted, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             <!-- Piece text -->
@@ -97,6 +102,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <!-- Canvas for right-click arrows -->
+                        <Canvas x:Name="MarkingsCanvas" IsHitTestVisible="False" Panel.ZIndex="5" Width="575" Height="575" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Canvas x:Name="DragCanvas" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="10">
                             <TextBlock x:Name="DragPieceText" FontSize="50" FontFamily="Segoe UI Symbol"/>
                         </Canvas>

@@ -12,6 +12,7 @@ namespace ChessGame.ViewModels
         private Brush _pieceColor = Brushes.Black;
         private bool _isSelected;
         private bool _isHighlighted;
+        private bool _isRightClicked;
         private Position _position;
 
         public Position Position 
@@ -48,6 +49,12 @@ namespace ChessGame.ViewModels
         {
             get => _isHighlighted;
             set { _isHighlighted = value; OnPropertyChanged(); }
+        }
+
+        public bool IsRightClicked
+        {
+            get => _isRightClicked;
+            set { _isRightClicked = value; OnPropertyChanged(); }
         }
 
         private bool _isLastMove;
