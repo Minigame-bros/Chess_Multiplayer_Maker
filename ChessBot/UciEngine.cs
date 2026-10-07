@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using ChessCore;
 
@@ -41,7 +42,7 @@ namespace ChessBot
 
             // Initialize UCI
             SendCommand("uci");
-            WaitFor("uciok");
+            WaitFor("uciok", 5000);
 
             // Configure Elo
             if (_elo > 0)
@@ -69,7 +70,7 @@ namespace ChessBot
             }
 
             SendCommand("isready");
-            WaitFor("readyok");
+            WaitFor("readyok", 5000);
         }
 
         private void SendCommand(string cmd)
@@ -83,12 +84,25 @@ namespace ChessBot
             catch { }
         }
 
-        private void WaitFor(string token)
+        private void WaitFor(string token, int timeoutMs = 5000)
         {
-            string line;
-            while ((line = _stdout.ReadLine()) != null)
+            var task = Task.Run(() =>
             {
-                if (line.Contains(token)) break;
+                try
+                {
+                    string line;
+                    while ((line = _stdout.ReadLine()) != null)
+                    {
+                        if (line.Contains(token)) return true;
+                    }
+                }
+                catch { }
+                return false;
+            });
+            
+            if (!task.Wait(timeoutMs) || !task.Result)
+            {
+                throw new Exception($"Engine failed to respond with {token} within {timeoutMs}ms");
             }
         }
 
@@ -131,8 +145,8 @@ namespace ChessBot
                 catch { }
             });
 
-            // Wait for 25 seconds max for the engine to respond
-            var timeoutTask = Task.Delay(25000);
+            // Wait for 15 seconds max for the engine to respond
+            var timeoutTask = Task.Delay(15000);
             var completedTask = await Task.WhenAny(readTask, timeoutTask);
 
             if (completedTask == timeoutTask)
@@ -146,8 +160,8 @@ namespace ChessBot
                 
                 if (finalTask == stopTimeoutTask)
                 {
-                    // Engine is hung. Restart it and force a random move.
-                    RestartEngine();
+                    // Engine is hung. Restart it safely in background and force a random move.
+                    _ = Task.Run(() => RestartEngineSafe());
                     return GetRandomMove(game);
                 }
             }
@@ -158,7 +172,21 @@ namespace ChessBot
             }
 
             var tuple = FenUtility.UciToMove(bestMoveStr);
-            return new BotMove(tuple.from, tuple.to, tuple.promo);
+            var move = new BotMove(tuple.from, tuple.to, tuple.promo);
+
+            // Validate that the engine's move is actually legal to prevent game stall
+            var piece = game.Board[move.From];
+            if (piece != null && piece.Color == game.CurrentPlayer)
+            {
+                var legalMoves = game.GetLegalMoves(piece, move.From);
+                if (legalMoves.Contains(move.To))
+                {
+                    return move;
+                }
+            }
+
+            // Engine returned an illegal move, fallback to random
+            return GetRandomMove(game);
         }
 
         private BotMove GetRandomMove(Game game)
@@ -196,10 +224,14 @@ namespace ChessBot
             throw new Exception("No legal moves available.");
         }
 
-        private void RestartEngine()
+        private void RestartEngineSafe()
         {
-            Dispose();
-            StartProcess();
+            try
+            {
+                Dispose();
+                StartProcess();
+            }
+            catch { }
         }
 
         public void Dispose()

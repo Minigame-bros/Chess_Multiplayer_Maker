@@ -358,6 +358,13 @@ namespace ChessGame.ViewModels
                             if (MainViewModel.Instance.IsMultiplayerHost) _ = _network.BroadcastMessageAsync(msg);
                             else _ = _network.SendMessageAsync(msg);
                         }
+                        
+                        if (IsBotMode && CurrentStatus == GameStatus.Playing)
+                        {
+                            bool wasCapture = san.Contains("x");
+                            if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game);
+                            _ = HandleBotTurnAsync();
+                        }
                     }
                     _pendingPromotionFrom = null;
                     _pendingPromotionTo = null;
