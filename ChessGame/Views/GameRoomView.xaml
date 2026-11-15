@@ -85,9 +85,10 @@
                                             <Rectangle Fill="#99EB6150" Visibility="{Binding IsRightClicked, Converter={StaticResource BooleanToVisibilityConverter}}" IsHitTestVisible="False" />
                                             <!-- Highlight circle for valid moves -->
                                             <Ellipse x:Name="HighlightCircle" Fill="#8020C820" Width="24" Height="24" Visibility="{Binding IsHighlighted, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                            <!-- Piece text -->
-                                            <TextBlock x:Name="PieceText" Text="{Binding PieceText}" Foreground="{Binding PieceColor}" 
-                                                       FontSize="50" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI Symbol"/>
+                                            <!-- Piece Image -->
+                                            <Image x:Name="PieceImage" Source="{Binding PieceImage}" Width="58" Height="58" Stretch="Uniform"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
                                         </Grid>
                                     </Border>
                                     <DataTemplate.Triggers>
@@ -96,7 +97,7 @@
                                             <Setter TargetName="SquareBorder" Property="BorderThickness" Value="3" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsDragging}" Value="True">
-                                            <Setter TargetName="PieceText" Property="Opacity" Value="0.3" />
+                                            <Setter TargetName="PieceImage" Property="Opacity" Value="0.3" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
@@ -105,7 +106,7 @@
                         <!-- Canvas for right-click arrows -->
                         <Canvas x:Name="MarkingsCanvas" IsHitTestVisible="False" Panel.ZIndex="5" Width="575" Height="575" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Canvas x:Name="DragCanvas" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="10">
-                            <TextBlock x:Name="DragPieceText" FontSize="50" FontFamily="Segoe UI Symbol"/>
+                            <Image x:Name="DragPieceImage" Width="58" Height="58" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                         </Canvas>
                     </Grid>
 
@@ -149,16 +150,16 @@
                     <TextBlock Text="Chọn quân để phong cấp:" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,20" HorizontalAlignment="Center"/>
                     <UniformGrid Columns="4" Width="400" Height="100">
                         <Button Command="{Binding PromoteCommand}" CommandParameter="5" Background="#444" BorderBrush="#555" Margin="5">
-                            <TextBlock Text="♕" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                            <Image Source="{Binding PromotionQueenImage}" Width="60" Height="60" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                         </Button>
                         <Button Command="{Binding PromoteCommand}" CommandParameter="4" Background="#444" BorderBrush="#555" Margin="5">
-                            <TextBlock Text="♖" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                            <Image Source="{Binding PromotionRookImage}" Width="60" Height="60" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                         </Button>
                         <Button Command="{Binding PromoteCommand}" CommandParameter="3" Background="#444" BorderBrush="#555" Margin="5">
-                            <TextBlock Text="♗" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                            <Image Source="{Binding PromotionBishopImage}" Width="60" Height="60" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                         </Button>
                         <Button Command="{Binding PromoteCommand}" CommandParameter="2" Background="#444" BorderBrush="#555" Margin="5">
-                            <TextBlock Text="♘" FontSize="60" Foreground="{Binding PromotionPieceColor}" FontFamily="Segoe UI Symbol"/>
+                            <Image Source="{Binding PromotionKnightImage}" Width="60" Height="60" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                         </Button>
                     </UniformGrid>
                 </StackPanel>

@@ -27,6 +27,13 @@ namespace ChessGame.ViewModels
             set { _background = value; OnPropertyChanged(); }
         }
 
+        private ImageSource? _pieceImage;
+        public ImageSource? PieceImage
+        {
+            get => _pieceImage;
+            set { _pieceImage = value; OnPropertyChanged(); }
+        }
+
         public string PieceText
         {
             get => _pieceText;

@@ -79,7 +79,7 @@ namespace ChessGame.Views
         {
             if (sender is System.Windows.FrameworkElement fe && fe.DataContext is ViewModels.SquareViewModel squareVm)
             {
-                if (!string.IsNullOrEmpty(squareVm.PieceText))
+                if (squareVm.PieceImage != null || !string.IsNullOrEmpty(squareVm.PieceText))
                 {
                     _startPoint = e.GetPosition(BoardContainer);
                     _draggedSquare = squareVm;
@@ -139,10 +139,9 @@ namespace ChessGame.Views
                         _draggedSquare.IsDragging = true;
                         
                         // Wait for layout update so ActualWidth is correct
-                        DragPieceText.Text = _draggedSquare.PieceText;
-                        DragPieceText.Foreground = _draggedSquare.PieceColor;
+                        DragPieceImage.Source = _draggedSquare.PieceImage;
                         DragCanvas.Visibility = System.Windows.Visibility.Visible;
-                        DragPieceText.UpdateLayout();
+                        DragPieceImage.UpdateLayout();
                         
                         BoardContainer.CaptureMouse();
                     }
@@ -150,8 +149,10 @@ namespace ChessGame.Views
 
                 if (_isDragging)
                 {
-                    System.Windows.Controls.Canvas.SetLeft(DragPieceText, currentPos.X - (DragPieceText.ActualWidth / 2));
-                    System.Windows.Controls.Canvas.SetTop(DragPieceText, currentPos.Y - (DragPieceText.ActualHeight / 2));
+                    double w = DragPieceImage.ActualWidth > 0 ? DragPieceImage.ActualWidth : 58;
+                    double h = DragPieceImage.ActualHeight > 0 ? DragPieceImage.ActualHeight : 58;
+                    System.Windows.Controls.Canvas.SetLeft(DragPieceImage, currentPos.X - (w / 2));
+                    System.Windows.Controls.Canvas.SetTop(DragPieceImage, currentPos.Y - (h / 2));
                 }
             }
         }
@@ -163,6 +164,7 @@ namespace ChessGame.Views
                 _isDragging = false;
                 BoardContainer.ReleaseMouseCapture();
                 DragCanvas.Visibility = System.Windows.Visibility.Collapsed;
+                DragPieceImage.Source = null;
                 if (_draggedSquare != null)
                 {
                     _draggedSquare.IsDragging = false;

@@ -323,6 +323,34 @@ namespace ChessGame.ViewModels
             set { _promotionPieceColor = value; OnPropertyChanged(); }
         }
 
+        private ImageSource? _promotionQueenImage;
+        public ImageSource? PromotionQueenImage
+        {
+            get => _promotionQueenImage;
+            set { _promotionQueenImage = value; OnPropertyChanged(); }
+        }
+
+        private ImageSource? _promotionRookImage;
+        public ImageSource? PromotionRookImage
+        {
+            get => _promotionRookImage;
+            set { _promotionRookImage = value; OnPropertyChanged(); }
+        }
+
+        private ImageSource? _promotionBishopImage;
+        public ImageSource? PromotionBishopImage
+        {
+            get => _promotionBishopImage;
+            set { _promotionBishopImage = value; OnPropertyChanged(); }
+        }
+
+        private ImageSource? _promotionKnightImage;
+        public ImageSource? PromotionKnightImage
+        {
+            get => _promotionKnightImage;
+            set { _promotionKnightImage = value; OnPropertyChanged(); }
+        }
+
         private Position? _pendingPromotionFrom;
         private Position? _pendingPromotionTo;
 
@@ -1228,10 +1256,12 @@ namespace ChessGame.ViewModels
                 {
                     sq.PieceText = GetPieceUnicode(p);
                     sq.PieceColor = (p.Color == PlayerColor.White) ? Brushes.White : Brushes.Black; 
+                    sq.PieceImage = Services.PieceImageService.GetPieceImage(p);
                 }
                 else
                 {
                     sq.PieceText = "";
+                    sq.PieceImage = null;
                 }
                 
                 sq.IsLastMove = (sq.Position == _lastMoveFrom || sq.Position == _lastMoveTo);
@@ -1386,10 +1416,12 @@ namespace ChessGame.ViewModels
                     };
                     sq.PieceText = GetPieceUnicode(mockPiece);
                     sq.PieceColor = (p.Color == (int)PlayerColor.White) ? Brushes.White : Brushes.Black;
+                    sq.PieceImage = Services.PieceImageService.GetPieceImage((PieceType)p.Type, (PlayerColor)p.Color);
                 }
                 else
                 {
                     sq.PieceText = "";
+                    sq.PieceImage = null;
                 }
                 sq.IsSelected = false;
                 sq.IsHighlighted = false;
@@ -1436,7 +1468,12 @@ namespace ChessGame.ViewModels
                         {
                             _pendingPromotionFrom = from;
                             _pendingPromotionTo = to;
-                            PromotionPieceColor = _game.CurrentPlayer == PlayerColor.White ? Brushes.White : Brushes.Black;
+                            var promoColor = _game.CurrentPlayer;
+                            PromotionPieceColor = promoColor == PlayerColor.White ? Brushes.White : Brushes.Black;
+                            PromotionQueenImage = Services.PieceImageService.GetPieceImage(PieceType.Queen, promoColor);
+                            PromotionRookImage = Services.PieceImageService.GetPieceImage(PieceType.Rook, promoColor);
+                            PromotionBishopImage = Services.PieceImageService.GetPieceImage(PieceType.Bishop, promoColor);
+                            PromotionKnightImage = Services.PieceImageService.GetPieceImage(PieceType.Knight, promoColor);
                             IsPromotionDialogVisible = true;
                             return;
                         }
