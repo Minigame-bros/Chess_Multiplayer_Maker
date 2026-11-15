@@ -10,7 +10,11 @@ namespace ChessGame.Models
         Chat,
         GameState,
         PlayerDisconnected,
-        StartGame
+        StartGame,
+        Resign,
+        OfferDraw,
+        AcceptDraw,
+        DeclineDraw
     }
 
     public class NetworkMessage

@@ -7,7 +7,12 @@ namespace ChessServerAPI.Models
         GameState,
         Move,
         Chat,
-        PlayerDisconnected
+        PlayerDisconnected,
+        StartGame,
+        Resign,
+        OfferDraw,
+        AcceptDraw,
+        DeclineDraw
     }
 
     public class NetworkMessage

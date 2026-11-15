@@ -5,7 +5,7 @@ namespace ChessCore
 {
     public class Game
     {
-        public Board Board { get; }
+        public Board Board { get; private set; }
         public PlayerColor CurrentPlayer { get; private set; }
         public bool IsCheck { get; private set; }
         public bool IsCheckmate { get; private set; }
@@ -14,6 +14,7 @@ namespace ChessCore
         public bool IsGameOver => IsCheckmate || IsStalemate || DrawReason != DrawReason.None;
 
         public int HalfmoveClock { get; private set; } = 0;
+        public int FullmoveNumber { get; private set; } = 1;
         private Dictionary<string, int> _positionHistory = new Dictionary<string, int>();
 
         public Game()
@@ -23,9 +24,37 @@ namespace ChessCore
             _positionHistory[GenerateStateString()] = 1;
         }
 
+        public Game(Board board, PlayerColor currentPlayer, int halfmoveClock = 0, int fullmoveNumber = 1)
+        {
+            Board = board;
+            CurrentPlayer = currentPlayer;
+            HalfmoveClock = halfmoveClock;
+            FullmoveNumber = Math.Max(1, fullmoveNumber);
+            _positionHistory[GenerateStateString()] = 1;
+            UpdateGameState();
+        }
+
+        public void ResetGameState(Board board, PlayerColor currentPlayer, int halfmoveClock = 0, int fullmoveNumber = 1)
+        {
+            Board = board;
+            CurrentPlayer = currentPlayer;
+            HalfmoveClock = halfmoveClock;
+            FullmoveNumber = Math.Max(1, fullmoveNumber);
+            _positionHistory.Clear();
+            _positionHistory[GenerateStateString()] = 1;
+            UpdateGameState();
+        }
+
+        public void ResetPositionHistory()
+        {
+            _positionHistory.Clear();
+            _positionHistory[GenerateStateString()] = 1;
+        }
+
         public void ForceSetCurrentPlayer(PlayerColor color)
         {
             CurrentPlayer = color;
+            UpdateGameState();
         }
 
         public bool IsPromotionMove(Position from, Position to)
@@ -114,10 +143,11 @@ namespace ChessCore
             }
 
             // Switch turns
+            if (CurrentPlayer == PlayerColor.Black)
+            {
+                FullmoveNumber++;
+            }
             CurrentPlayer = CurrentPlayer == PlayerColor.White ? PlayerColor.Black : PlayerColor.White;
-            
-            // Check if the new player is in check
-            IsCheck = IsPlayerInCheck(CurrentPlayer, Board);
 
             // Update draw clocks
             if (isPawnMove || isCapture)
@@ -135,6 +165,18 @@ namespace ChessCore
                 _positionHistory[state]++;
             else
                 _positionHistory[state] = 1;
+
+            UpdateGameState();
+
+            return true;
+        }
+
+        public void UpdateGameState()
+        {
+            IsCheck = IsPlayerInCheck(CurrentPlayer, Board);
+            IsCheckmate = false;
+            IsStalemate = false;
+            DrawReason = DrawReason.None;
 
             // Check if game is over (no legal moves)
             if (!HasLegalMoves(CurrentPlayer))
@@ -157,19 +199,21 @@ namespace ChessCore
                     IsStalemate = true;
                     DrawReason = DrawReason.FiftyMoveRule;
                 }
-                else if (_positionHistory[state] >= 3)
+                else
                 {
-                    IsStalemate = true;
-                    DrawReason = DrawReason.ThreefoldRepetition;
-                }
-                else if (CheckInsufficientMaterial())
-                {
-                    IsStalemate = true;
-                    DrawReason = DrawReason.InsufficientMaterial;
+                    string state = GenerateStateString();
+                    if (_positionHistory.TryGetValue(state, out int count) && count >= 3)
+                    {
+                        IsStalemate = true;
+                        DrawReason = DrawReason.ThreefoldRepetition;
+                    }
+                    else if (CheckInsufficientMaterial())
+                    {
+                        IsStalemate = true;
+                        DrawReason = DrawReason.InsufficientMaterial;
+                    }
                 }
             }
-
-            return true;
         }
 
         private bool HasLegalMoves(PlayerColor color)

@@ -15,6 +15,59 @@ namespace ChessGame.Views
         public GameRoomView()
         {
             InitializeComponent();
+            Loaded += (s, e) =>
+            {
+                Focusable = true;
+                Focus();
+            };
+            PreviewKeyDown += GameRoomView_PreviewKeyDown;
+        }
+
+        private void GameRoomView_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.OriginalSource is TextBox || e.OriginalSource is PasswordBox) return;
+
+            if (DataContext is ViewModels.GameRoomViewModel vm)
+            {
+                switch (e.Key)
+                {
+                    case System.Windows.Input.Key.Left:
+                        if (vm.PreviousMoveCommand.CanExecute(null))
+                        {
+                            vm.PreviousMoveCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                        break;
+                    case System.Windows.Input.Key.Right:
+                        if (vm.NextMoveCommand.CanExecute(null))
+                        {
+                            vm.NextMoveCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                        break;
+                    case System.Windows.Input.Key.Home:
+                        if (vm.FirstMoveCommand.CanExecute(null))
+                        {
+                            vm.FirstMoveCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                        break;
+                    case System.Windows.Input.Key.End:
+                        if (vm.LastMoveCommand.CanExecute(null))
+                        {
+                            vm.LastMoveCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                        break;
+                    case System.Windows.Input.Key.F:
+                        if (vm.FlipBoardCommand.CanExecute(null))
+                        {
+                            vm.FlipBoardCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                        break;
+                }
+            }
         }
 
         private void BoardContainer_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

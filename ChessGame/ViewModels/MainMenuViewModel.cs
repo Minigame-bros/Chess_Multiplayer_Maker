@@ -14,6 +14,7 @@ namespace ChessGame.ViewModels
         public ICommand PlayBotCommand { get; }
         public ICommand LanCommand { get; }
         public ICommand PlayInternetCommand { get; }
+        public ICommand AnalysisCommand { get; }
 
         public MainMenuViewModel()
         {
@@ -35,6 +36,11 @@ namespace ChessGame.ViewModels
             PlayInternetCommand = new RelayCommand(_ => 
             {
                 MainViewModel.Instance.NavigateTo(new InternetLobbyViewModel());
+            });
+
+            AnalysisCommand = new RelayCommand(_ =>
+            {
+                MainViewModel.Instance.NavigateTo(new GameRoomViewModel(isAnalysisMode: true));
             });
         }
     }

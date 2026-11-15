@@ -56,6 +56,28 @@ namespace ChessCore
         {
             return Row >= 0 && Row < 8 && Col >= 0 && Col < 8;
         }
+
+        public string ToAlgebraic()
+        {
+            return $"{(char)('a' + Col)}{8 - Row}";
+        }
+
+        public static bool TryFromAlgebraic(string s, out Position pos)
+        {
+            pos = default;
+            if (string.IsNullOrWhiteSpace(s) || s.Length < 2) return false;
+            char file = char.ToLowerInvariant(s[0]);
+            char rank = s[1];
+            if (file < 'a' || file > 'h' || rank < '1' || rank > '8') return false;
+            pos = new Position(8 - (rank - '0'), file - 'a');
+            return true;
+        }
+
+        public static Position FromAlgebraic(string s)
+        {
+            if (TryFromAlgebraic(s, out Position pos)) return pos;
+            throw new ArgumentException($"Invalid algebraic coordinate: '{s}'");
+        }
     }
 
     public class Direction

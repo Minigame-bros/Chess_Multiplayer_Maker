@@ -18,11 +18,28 @@ namespace ChessCore
             set => pieces[pos.Row, pos.Col] = value;
         }
 
+        public static Board Empty()
+        {
+            return new Board();
+        }
+
         public static Board Initial()
         {
             Board board = new Board();
             board.AddStartPieces();
             return board;
+        }
+
+        public void Clear()
+        {
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    pieces[r, c] = null;
+                }
+            }
+            EnPassantTarget = null;
         }
 
         private void AddStartPieces()

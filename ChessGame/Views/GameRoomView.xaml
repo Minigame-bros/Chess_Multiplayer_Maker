@@ -15,7 +15,7 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="250" />
+            <ColumnDefinition Width="320" MinWidth="280" />
         </Grid.ColumnDefinitions>
 
         <!-- Board Area -->
@@ -165,6 +165,122 @@
             </Border>
         </Grid>
 
+        <!-- FEN & PGN Dialog Overlay -->
+        <Grid Grid.ColumnSpan="2" Background="#B0000000" Visibility="{Binding IsFenPgnDialogVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Panel.ZIndex="30">
+            <Border Background="#2b2b2b" BorderBrush="#555" BorderThickness="1" CornerRadius="10" Width="620" MaxHeight="520" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="♟️ Quản lý FEN &amp; PGN" Foreground="White" FontSize="18" FontWeight="Bold"/>
+                            <TextBlock Text="(Tương thích Chess.com / Lichess)" Foreground="#aaa" FontSize="13" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✖" Command="{Binding CloseFenPgnDialogCommand}" Background="Transparent" Foreground="#aaa" BorderThickness="0" FontSize="16" FontWeight="Bold" Cursor="Hand" Padding="5,0"/>
+                    </Grid>
+
+                    <!-- Tab Control -->
+                    <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0" SelectedIndex="{Binding ActiveFenPgnTab}">
+                        <TabControl.Resources>
+                            <Style TargetType="TabItem">
+                                <Setter Property="Foreground" Value="LightGray"/>
+                                <Setter Property="FontSize" Value="14"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="Padding" Value="14,8"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="TabItem">
+                                            <Border Name="Border" Background="#383838" BorderBrush="#555" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Margin="0,0,4,0" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Border" Property="Background" Value="#444"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </TabControl.Resources>
+
+                        <!-- TAB 1: Xuất (Export) -->
+                        <TabItem Header="📤 Xuất (Export)">
+                            <Border Background="#333" BorderBrush="#555" BorderThickness="1" CornerRadius="0,4,4,4" Padding="15">
+                                <StackPanel>
+                                    <!-- FEN Section -->
+                                    <TextBlock Text="FEN (Thế cờ hiện tại của bàn):" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,0,0,5"/>
+                                    <Grid Margin="0,0,0,15">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0" Text="{Binding CurrentFen, Mode=OneWay}" IsReadOnly="True" Background="#222" Foreground="#8be9fd" FontFamily="Consolas" FontSize="12" Padding="6" BorderBrush="#555"/>
+                                        <Button Grid.Column="1" Content="📋 Sao chép FEN" Command="{Binding CopyFenCommand}" Background="#0275d8" Foreground="White" FontWeight="Bold" Margin="8,0,0,0" Padding="10,5" BorderThickness="0" Cursor="Hand"/>
+                                    </Grid>
+
+                                    <!-- PGN Section -->
+                                    <TextBlock Text="PGN (Toàn bộ biên bản ván đấu):" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding CurrentPgn, Mode=OneWay}" IsReadOnly="True" Height="130" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#222" Foreground="#50fa7b" FontFamily="Consolas" FontSize="12" Padding="6" BorderBrush="#555" Margin="0,0,0,10"/>
+                                    
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="📋 Sao chép PGN" Command="{Binding CopyPgnCommand}" Background="#0275d8" Foreground="White" FontWeight="Bold" Margin="0,0,10,0" Padding="12,6" BorderThickness="0" Cursor="Hand"/>
+                                        <Button Content="💾 Lưu file .pgn vào máy" Command="{Binding SavePgnFileCommand}" Background="#5cb85c" Foreground="White" FontWeight="Bold" Padding="12,6" BorderThickness="0" Cursor="Hand"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </TabItem>
+
+                        <!-- TAB 2: Nhập (Import) -->
+                        <TabItem Header="📥 Nhập (Import)">
+                            <Border Background="#333" BorderBrush="#555" BorderThickness="1" CornerRadius="0,4,4,4" Padding="15">
+                                <StackPanel>
+                                    <!-- Warning Banner when Import is disabled in active matches -->
+                                    <Border Background="#3e2723" BorderBrush="#ff9800" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12"
+                                            Visibility="{Binding IsImportDisabled, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                <TextBlock Text="⚠️ " FontSize="16"/>
+                                                <TextBlock Text="Chức năng nạp thế cờ tạm khóa trong chế độ này" FontWeight="Bold" Foreground="#ffb74d" FontSize="13" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding ImportDisabledReason}" Foreground="#ffe0b2" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                            <Button Content="🔍 Chuyển sang Chế độ Phân tích để thử nghiệm tự do" 
+                                                    Command="{Binding SwitchToAnalysisModeCommand}" 
+                                                    Background="#ff9800" Foreground="#212121" FontWeight="Bold" Padding="12,6" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="Dán mã FEN hoặc PGN từ Chess.com, Lichess hoặc phần mềm khác:" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding ImportText, UpdateSourceTrigger=PropertyChanged}" Height="110" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#222" Foreground="White" FontFamily="Consolas" FontSize="12" Padding="6" BorderBrush="#555" Margin="0,0,0,10" AcceptsReturn="True" IsEnabled="{Binding CanImport}"/>
+
+                                    <TextBlock Text="{Binding ImportErrorText}" Foreground="#ff6b6b" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10" Visibility="{Binding HasImportError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Content="📁 Mở file .pgn từ máy..." Command="{Binding LoadPgnFromFileCommand}" IsEnabled="{Binding CanImport}" Background="#444" Foreground="White" Padding="12,6" BorderThickness="0" Cursor="Hand"/>
+                                        <Button Grid.Column="2" Content="🚀 Nạp thế cờ vào bàn" Command="{Binding ApplyImportCommand}" IsEnabled="{Binding CanImport}" Background="#5cb85c" Foreground="White" FontWeight="Bold" Padding="16,6" BorderThickness="0" Cursor="Hand"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </Border>
+        </Grid>
+
         <!-- Sidebar for settings & info -->
         <Border Grid.Column="1" Background="#333" Padding="15">
             <Grid>
@@ -180,62 +296,125 @@
                     <RowDefinition Height="Auto"/> <!-- Chat Input -->
                 </Grid.RowDefinitions>
 
-                <!-- Top Bar: Options -->
-                <Grid Grid.Row="0" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    
-                    <ToggleButton x:Name="SettingsToggle" Grid.Column="0" Content="⚙️" FontSize="18" Padding="5" Background="Transparent" Foreground="White" BorderThickness="0" ToolTip="Cài đặt bàn cờ"/>
-                    
-                    <Popup IsOpen="{Binding IsChecked, ElementName=SettingsToggle}" StaysOpen="False" PlacementTarget="{Binding ElementName=SettingsToggle}" Placement="Bottom">
-                        <Border Background="#444" BorderBrush="#555" BorderThickness="1" Padding="10">
-                            <StackPanel>
-                                <TextBlock Text="Màu ô sáng (Hex):" Foreground="White" Margin="0,0,0,5"/>
-                                <ComboBox SelectedIndex="{Binding SelectedThemeIndex}">
-                                    <ComboBoxItem Content="Gỗ Cổ điển" />
-                                    <ComboBoxItem Content="Xanh lá/Trắng" />
-                                    <ComboBoxItem Content="Xám/Trắng" />
-                                </ComboBox>
-                                
-                                <!-- Time Settings (Host Only) -->
-                                <StackPanel Visibility="{Binding CanStartGame, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,15,0,0">
-                                    <TextBlock Text="Cài đặt thời gian:" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
-                                    <Grid Margin="0,0,0,5">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Thời gian (phút, 0=∞):" Foreground="White" VerticalAlignment="Center" FontSize="12"/>
-                                        <TextBox Grid.Column="1" Text="{Binding GameTimeMinutes, UpdateSourceTrigger=PropertyChanged}" Width="40" Margin="5,0,0,0" TextAlignment="Center"/>
-                                    </Grid>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Thêm (giây/nước):" Foreground="White" VerticalAlignment="Center" FontSize="12"/>
-                                        <TextBox Grid.Column="1" Text="{Binding TimeIncrementSeconds, UpdateSourceTrigger=PropertyChanged}" Width="40" Margin="5,0,0,0" TextAlignment="Center"/>
-                                    </Grid>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </Popup>
+                <!-- Top Bar: Options & Game Actions (2 Separate Rows) -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                    <!-- Hàng 1: Tiện ích bàn cờ & Thoát phòng -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Left: Settings & Flip Board -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ToggleButton x:Name="SettingsToggle" Content="⚙️ Cài đặt" FontSize="11" FontWeight="SemiBold" Padding="7,4" Margin="0,0,4,0" Background="#383838" Foreground="White" BorderThickness="0" ToolTip="Cài đặt giao diện &amp; thời gian" Cursor="Hand"/>
+                            <Button Content="🔄 Đảo bàn (F)" Command="{Binding FlipBoardCommand}" ToolTip="Đảo góc nhìn bàn cờ (Phím F)" FontSize="11" FontWeight="SemiBold" Padding="7,4" Background="#383838" Foreground="#80d8ff" BorderThickness="0" Cursor="Hand"/>
+                        </StackPanel>
 
-                    <Button Grid.Column="2" Content="Thoát phòng" Command="{Binding LeaveRoomCommand}" Background="#d9534f" Foreground="White" Padding="10,5" FontWeight="Bold" ToolTip="Thoát khỏi phòng chơi"/>
-                </Grid>
+                        <Popup IsOpen="{Binding IsChecked, ElementName=SettingsToggle}" StaysOpen="False" PlacementTarget="{Binding ElementName=SettingsToggle}" Placement="Bottom">
+                            <Border Background="#2c2c2c" BorderBrush="#555" BorderThickness="1" CornerRadius="6" Padding="12" Width="240">
+                                <StackPanel>
+                                    <TextBlock Text="Màu ô bàn cờ:" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <ComboBox SelectedIndex="{Binding SelectedThemeIndex}">
+                                        <ComboBoxItem Content="Gỗ Cổ điển" />
+                                        <ComboBoxItem Content="Xanh lá / Trắng" />
+                                        <ComboBoxItem Content="Xám / Trắng" />
+                                    </ComboBox>
+                                    
+                                    <!-- Time Settings (Host Only) -->
+                                    <StackPanel Visibility="{Binding CanStartGame, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,15,0,0">
+                                        <TextBlock Text="Cài đặt thời gian:" Foreground="White" FontWeight="Bold" Margin="0,0,0,5"/>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Thời gian (phút, 0=∞):" Foreground="White" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox Grid.Column="1" Text="{Binding GameTimeMinutes, UpdateSourceTrigger=PropertyChanged}" Width="45" Margin="5,0,0,0" TextAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Cộng thêm (giây/nước):" Foreground="White" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox Grid.Column="1" Text="{Binding TimeIncrementSeconds, UpdateSourceTrigger=PropertyChanged}" Width="45" Margin="5,0,0,0" TextAlignment="Center"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+
+                        <!-- Right: Leave Room (Full text, not cut off) -->
+                        <Button Grid.Column="2" Content="🚪 Thoát phòng" Command="{Binding LeaveRoomCommand}" Background="#d32f2f" Foreground="White" Padding="8,4" FontWeight="Bold" FontSize="11" BorderThickness="0" Cursor="Hand" ToolTip="Thoát khỏi phòng chơi"/>
+                    </Grid>
+
+                    <!-- Hàng 2: Nút Đầu hàng & Cầu hòa trong trận (chia đều 2 cột rộng rãi) -->
+                    <UniformGrid Columns="2" Margin="0,6,0,0" Visibility="{Binding CanResignOrDraw, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Button Content="🏳️ Đầu hàng" Command="{Binding ResignCommand}" 
+                                Background="#3e2723" Foreground="#ff8a80" BorderThickness="1" BorderBrush="#d32f2f" Padding="0,6" Margin="0,0,3,0" FontWeight="Bold" FontSize="11" Cursor="Hand" ToolTip="Xin đầu hàng ván cờ"/>
+                        
+                        <Button Content="🤝 Xin hòa" Command="{Binding OfferDrawCommand}" 
+                                Background="#3e2723" Foreground="#ffe082" BorderThickness="1" BorderBrush="#f57c00" Padding="0,6" Margin="3,0,0,0" FontWeight="Bold" FontSize="11" Cursor="Hand" ToolTip="Đề nghị hòa ván cờ"/>
+                    </UniformGrid>
+                </StackPanel>
                 
-                <TextBlock Grid.Row="1" Text="{Binding StatusText}" Foreground="LightGray" FontSize="16" FontWeight="Bold" TextWrapping="Wrap" Margin="0,5,0,10"/>
+                <!-- Status Banner Card -->
+                <Border Grid.Row="1" Background="#222" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                    <TextBlock Text="{Binding StatusText}" Foreground="#ffeb3b" FontSize="13" FontWeight="Bold" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"/>
+                </Border>
                 
-                <!-- Start / Play Again Button -->
-                <Button Grid.Row="2" Content="{Binding StartButtonText}" Command="{Binding StartGameCommand}" Background="#5cb85c" Foreground="White" Padding="5" Margin="0,0,0,10" FontWeight="Bold" Visibility="{Binding CanStartGame, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <!-- Action Controls: Start Game / Post-Game Analysis / Analysis Toolbox -->
+                <StackPanel Grid.Row="2">
+                    <!-- Start / Play Again Button -->
+                    <Button Content="{Binding StartButtonText}" Command="{Binding StartGameCommand}" Background="#2e7d32" Foreground="White" Padding="8,7" Margin="0,0,0,10" FontWeight="Bold" FontSize="13" Cursor="Hand" Visibility="{Binding CanStartGame, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                    <!-- Post-Game Analysis button (appears when game finished & not already analysis) -->
+                    <Button Content="🔍 Thử nghiệm / Phân tích ván cờ này" 
+                            Command="{Binding SwitchToAnalysisModeCommand}" 
+                            Background="#6a1b9a" Foreground="White" Padding="8,7" Margin="0,0,0,10" FontWeight="Bold" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsGameOver}" Value="True"/>
+                                            <Condition Binding="{Binding IsAnalysisMode}" Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <!-- Analysis Mode Toolbox (active only in Analysis Mode) -->
+                    <Border Background="#231730" BorderBrush="#ab47bc" BorderThickness="1.5" CornerRadius="8" Padding="10" Margin="0,0,0,10"
+                            Visibility="{Binding IsAnalysisMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="🔍 " FontSize="13"/>
+                                <TextBlock Text="BẢNG ĐIỀU KHIỂN PHÂN TÍCH" Foreground="#e1bee7" FontWeight="Bold" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="• Tự do đi cả 2 bên. Nhờ Stockfish tính nước tối ưu." Foreground="#b0bec5" FontSize="11" Margin="0,0,0,8"/>
+                            <UniformGrid Columns="2" Margin="0,0,0,5">
+                                <Button Content="🤖 Bot gợi ý" Command="{Binding PlayBotMoveCommand}" Background="#1565c0" Foreground="White" FontWeight="Bold" Padding="6,5" Margin="0,0,2,0" BorderThickness="0" Cursor="Hand" ToolTip="Nhờ máy Stockfish tính và đi 1 nước tối ưu"/>
+                                <Button Content="🔄 Đặt lại bàn" Command="{Binding ResetAnalysisBoardCommand}" Background="#424242" Foreground="White" FontWeight="Bold" Padding="6,5" Margin="2,0,0,0" BorderThickness="0" Cursor="Hand" ToolTip="Làm mới bàn cờ về vị trí ban đầu"/>
+                            </UniformGrid>
+                            <UniformGrid Columns="2">
+                                <Button Content="📥 Nạp thế cờ" Command="{Binding OpenFenPgnDialogCommand}" CommandParameter="1" Background="#2e7d32" Foreground="White" FontWeight="Bold" Padding="6,5" Margin="0,0,2,0" BorderThickness="0" Cursor="Hand" ToolTip="Nạp thế cờ từ FEN hoặc PGN"/>
+                                <Button Content="📋 Xuất FEN" Command="{Binding CopyFenCommand}" Background="#4a148c" Foreground="White" FontWeight="Bold" Padding="6,5" Margin="2,0,0,0" BorderThickness="0" Cursor="Hand" ToolTip="Sao chép nhanh FEN của thế cờ hiện tại"/>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <!-- Return to game button (visible when viewing history) -->
-                <Button Grid.Row="3" Content="Quay lại ván cờ chính" Command="{Binding ReturnToCurrentGameCommand}" Background="#0275d8" Foreground="White" Padding="5" Margin="0,0,0,10" FontWeight="Bold">
-                    <Button.Style>
-                        <Style TargetType="Button">
+                <Border Grid.Row="3" Background="#0d47a1" BorderBrush="#42a5f5" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,10">
+                    <Border.Style>
+                        <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsViewingHistory}" Value="True">
@@ -243,52 +422,156 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </Button.Style>
-                </Button>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="👁️ Đang xem lại lịch sử" Foreground="White" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Content="▶ Về ván chính" Command="{Binding ReturnToCurrentGameCommand}" Background="#1e88e5" Foreground="White" FontWeight="Bold" FontSize="11" Padding="8,4" BorderThickness="0" Cursor="Hand"/>
+                    </Grid>
+                </Border>
 
-                <TextBlock Grid.Row="4" Text="Biên bản ván cờ" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,5"/>
+                <!-- Move History Header & Quick Toolbar (2 Separate Rows) -->
+                <StackPanel Grid.Row="4" Margin="0,0,0,6">
+                    <!-- Hàng 1: Tiêu đề Biên bản ván cờ -->
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📜 " FontSize="14"/>
+                            <TextBlock Text="Biên bản ván cờ" Foreground="White" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="(FEN / PGN)" Foreground="#888" FontSize="11" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- Hàng 2: Thanh nút FEN & PGN dàn đều 5 cột rộng rãi -->
+                    <UniformGrid Columns="5" Margin="0,0,0,2">
+                        <Button Content="📋 FEN" Command="{Binding CopyFenCommand}" ToolTip="Sao chép nhanh FEN thế cờ hiện tại" Margin="1,0" Padding="0,5" Background="#383838" Foreground="#8be9fd" BorderThickness="0" FontSize="11" FontWeight="Bold" Cursor="Hand"/>
+                        <Button Content="📜 PGN" Command="{Binding CopyPgnCommand}" ToolTip="Sao chép nhanh PGN ván đấu" Margin="1,0" Padding="0,5" Background="#383838" Foreground="#50fa7b" BorderThickness="0" FontSize="11" FontWeight="Bold" Cursor="Hand"/>
+                        <Button Content="💾 Lưu" Command="{Binding SavePgnFileCommand}" ToolTip="Lưu file .pgn vào máy tính" Margin="1,0" Padding="0,5" Background="#383838" Foreground="#ffb86c" BorderThickness="0" FontSize="11" FontWeight="Bold" Cursor="Hand"/>
+                        <Button Content="📥 Nạp" Command="{Binding OpenFenPgnDialogCommand}" CommandParameter="1" ToolTip="Nạp thế cờ (FEN / PGN)" Margin="1,0" Padding="0,5" Background="#2e7d32" Foreground="White" BorderThickness="0" FontSize="11" FontWeight="Bold" Cursor="Hand"/>
+                        <Button Content="⚙️ Xem" Command="{Binding OpenFenPgnDialogCommand}" CommandParameter="0" ToolTip="Mở bảng quản lý FEN &amp; PGN chi tiết" Margin="1,0" Padding="0,5" Background="#1565c0" Foreground="White" BorderThickness="0" FontSize="11" FontWeight="Bold" Cursor="Hand"/>
+                    </UniformGrid>
+                </StackPanel>
                 
-                <!-- History ItemsControl (Two Columns) -->
-                <ScrollViewer Grid.Row="5" Background="#222" Margin="0,0,0,10">
-                    <ItemsControl ItemsSource="{Binding MoveHistory}" Foreground="White" BorderThickness="1" BorderBrush="#555">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="30"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding DisplayTurnNumber}" FontSize="14" Foreground="LightGray" VerticalAlignment="Center"/>
-                                    
-                                    <Button Grid.Column="1" Content="{Binding WhiteMove.SanNotation}" Command="{Binding DataContext.ReviewMoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding WhiteMove}" Background="Transparent" Foreground="White" BorderThickness="0" HorizontalAlignment="Left">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding WhiteMove}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Hidden"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
-                                    
-                                    <Button Grid.Column="2" Content="{Binding BlackMove.SanNotation}" Command="{Binding DataContext.ReviewMoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding BlackMove}" Background="Transparent" Foreground="White" BorderThickness="0" HorizontalAlignment="Left">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding BlackMove}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Hidden"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                <!-- History ItemsControl & Navigation Bar -->
+                <Grid Grid.Row="5" Margin="0,0,0,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#222" BorderBrush="#444" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding MoveHistory}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#2e2e2e" BorderThickness="0,0,0,1" Padding="4,2">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="32"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayTurnNumber}" FontSize="13" Foreground="#888" VerticalAlignment="Center"/>
+                                                
+                                                <Button Grid.Column="1" Content="{Binding WhiteMove.SanNotation}" Command="{Binding DataContext.ReviewMoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding WhiteMove}" Margin="1,0">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                            <Setter Property="BorderThickness" Value="0"/>
+                                                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                                            <Setter Property="Padding" Value="6,3"/>
+                                                            <Setter Property="Cursor" Value="Hand"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="btnBorder" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="btnBorder" Property="Background" Value="#383838"/>
+                                                                            </Trigger>
+                                                                            <DataTrigger Binding="{Binding WhiteMove.IsSelected}" Value="True">
+                                                                                <Setter TargetName="btnBorder" Property="Background" Value="#1565c0"/>
+                                                                                <Setter Property="Foreground" Value="White"/>
+                                                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                                            </DataTrigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding WhiteMove}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                
+                                                <Button Grid.Column="2" Content="{Binding BlackMove.SanNotation}" Command="{Binding DataContext.ReviewMoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding BlackMove}" Margin="1,0">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                            <Setter Property="BorderThickness" Value="0"/>
+                                                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                                            <Setter Property="Padding" Value="6,3"/>
+                                                            <Setter Property="Cursor" Value="Hand"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="btnBorder" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="btnBorder" Property="Background" Value="#383838"/>
+                                                                            </Trigger>
+                                                                            <DataTrigger Binding="{Binding BlackMove.IsSelected}" Value="True">
+                                                                                <Setter TargetName="btnBorder" Property="Background" Value="#1565c0"/>
+                                                                                <Setter Property="Foreground" Value="White"/>
+                                                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                                            </DataTrigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding BlackMove}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Navigation Controller Bar -->
+                    <Border Grid.Row="1" Background="#2c2c2c" BorderBrush="#444" BorderThickness="1,1,1,1" CornerRadius="0,0,4,4" Padding="3">
+                        <UniformGrid Columns="4">
+                            <Button Content="⏮" Command="{Binding FirstMoveCommand}" ToolTip="Về thế cờ ban đầu (Home)" Background="#3a3a3a" Foreground="White" FontSize="14" FontWeight="Bold" Margin="2,1" Padding="0,5" BorderThickness="0" Cursor="Hand"/>
+                            <Button Content="◀" Command="{Binding PreviousMoveCommand}" ToolTip="Nước trước (Phím ←)" Background="#3a3a3a" Foreground="White" FontSize="14" FontWeight="Bold" Margin="2,1" Padding="0,5" BorderThickness="0" Cursor="Hand"/>
+                            <Button Content="▶" Command="{Binding NextMoveCommand}" ToolTip="Nước tiếp theo (Phím →)" Background="#3a3a3a" Foreground="White" FontSize="14" FontWeight="Bold" Margin="2,1" Padding="0,5" BorderThickness="0" Cursor="Hand"/>
+                            <Button Content="⏭" Command="{Binding LastMoveCommand}" ToolTip="Về nước mới nhất / Bàn cờ chính (End)" Background="#3a3a3a" Foreground="White" FontSize="14" FontWeight="Bold" Margin="2,1" Padding="0,5" BorderThickness="0" Cursor="Hand"/>
+                        </UniformGrid>
+                    </Border>
+                </Grid>
 
                 <TextBlock Grid.Row="6" Text="Chat" Foreground="White" FontSize="18" FontWeight="Bold" Margin="0,20,0,10"
                            Visibility="{Binding IsMultiplayerMode, Converter={StaticResource BooleanToVisibilityConverter}}"/>

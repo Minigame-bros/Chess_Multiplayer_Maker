@@ -9,6 +9,9 @@ using System.Collections.Generic;
 using System.Windows.Threading;
 using System;
 using System.Threading.Tasks;
+using System.IO;
+using System.Text.RegularExpressions;
+using Microsoft.Win32;
 using ChessCore;
 using ChessGame.Models;
 using ChessBot;
@@ -95,27 +98,83 @@ namespace ChessGame.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanStartGame));
                 OnPropertyChanged(nameof(StatusText));
+                OnPropertyChanged(nameof(IsGameOver));
+                OnPropertyChanged(nameof(CanResignOrDraw));
+                OnPropertyChanged(nameof(CanImport));
+                OnPropertyChanged(nameof(IsImportDisabled));
+                OnPropertyChanged(nameof(ImportDisabledReason));
             }
         }
         
-        public bool IsHost => MainViewModel.Instance.IsMultiplayerHost;
-        public bool IsHotseatMode => !MainViewModel.Instance.IsMultiplayerHost && !MainViewModel.Instance.IsMultiplayerClient && _bot == null;
-        public bool IsMultiplayerMode => MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient;
-        public bool IsBotMode => _bot != null;
+        private bool _isAnalysisMode = false;
+        public bool IsAnalysisMode
+        {
+            get => _isAnalysisMode;
+            private set
+            {
+                _isAnalysisMode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsHotseatMode));
+                OnPropertyChanged(nameof(IsBotMode));
+                OnPropertyChanged(nameof(IsMultiplayerMode));
+                OnPropertyChanged(nameof(CanImport));
+                OnPropertyChanged(nameof(IsImportDisabled));
+                OnPropertyChanged(nameof(ImportDisabledReason));
+                OnPropertyChanged(nameof(CanStartGame));
+                OnPropertyChanged(nameof(_isMyTurn));
+            }
+        }
+
+        public bool IsHost => MainViewModel.Instance.IsMultiplayerHost && !_isAnalysisMode;
+        public bool IsHotseatMode => !MainViewModel.Instance.IsMultiplayerHost && !MainViewModel.Instance.IsMultiplayerClient && _bot == null && !_isAnalysisMode;
+        public bool IsMultiplayerMode => (MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient) && !_isAnalysisMode;
+        public bool IsBotMode => _bot != null && !_isAnalysisMode;
+
+        public bool CanImport
+        {
+            get
+            {
+                if (IsAnalysisMode) return true;
+                if (IsMultiplayerMode) return false;
+                if (IsBotMode && CurrentStatus == GameStatus.Playing) return false;
+                return true;
+            }
+        }
+
+        public bool IsImportDisabled => !CanImport;
+
+        public string ImportDisabledReason
+        {
+            get
+            {
+                if (IsMultiplayerMode)
+                {
+                    return "🔒 Chức năng nạp thế cờ (Import) bị khóa trong chế độ Chơi Mạng để tránh lỗi bất đồng bộ và gian lận. Bạn có thể bấm 'Chuyển sang Phân tích' để thử nghiệm độc lập.";
+                }
+                if (IsBotMode && CurrentStatus == GameStatus.Playing)
+                {
+                    return "🔒 Không thể nạp thế cờ khi trận đấu với Bot đang diễn ra để chống gian lận. Bạn có thể kết thúc ván đấu hoặc bấm 'Chuyển sang Phân tích' để thử nghiệm tự do.";
+                }
+                return string.Empty;
+            }
+        }
         
         private string _botSpeechText = "";
         public string BotSpeechText { get => _botSpeechText; set { _botSpeechText = value; OnPropertyChanged(); } }
         
         public IChessBot? Bot => _bot;
         
-        public bool CanStartGame => (IsHost && _playerCount == 2 && CurrentStatus != GameStatus.Playing) || 
+        public bool CanStartGame => !IsAnalysisMode && ((IsHost && _playerCount == 2 && CurrentStatus != GameStatus.Playing) || 
                                     (IsHotseatMode && CurrentStatus != GameStatus.Playing) ||
-                                    (IsBotMode && CurrentStatus != GameStatus.Playing);
+                                    (IsBotMode && CurrentStatus != GameStatus.Playing));
         public string StartButtonText => CurrentStatus == GameStatus.Finished ? "Chơi ván mới" : "Bắt đầu";
+        public bool IsGameOver => CurrentStatus == GameStatus.Finished;
+
         private bool _isMyTurn
         {
             get
             {
+                if (IsAnalysisMode) return true;
                 if (_isSpectator) return false;
                 if (IsBotMode)
                 {
@@ -139,6 +198,12 @@ namespace ChessGame.ViewModels
 
         private SquareViewModel? _selectedSquare;
 
+        private List<PieceDto> _initialBoardSnapshot = new List<PieceDto>();
+        private bool _isViewingInitialPosition = false;
+
+        public bool IsBoardRotated => _isBoardRotated;
+        public bool CanResignOrDraw => CurrentStatus == GameStatus.Playing && !_isSpectator;
+
         public ObservableCollection<SquareViewModel> Squares { get; } = new ObservableCollection<SquareViewModel>();
         
         public ObservableCollection<TurnRecord> MoveHistory { get; } = new ObservableCollection<TurnRecord>();
@@ -148,12 +213,25 @@ namespace ChessGame.ViewModels
             get => _selectedHistoryMove;
             set
             {
+                if (_selectedHistoryMove != null)
+                {
+                    _selectedHistoryMove.IsSelected = false;
+                }
                 _selectedHistoryMove = value;
+                if (_selectedHistoryMove != null)
+                {
+                    _isViewingInitialPosition = false;
+                    _selectedHistoryMove.IsSelected = true;
+                }
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(IsViewingHistory));
                 if (_selectedHistoryMove != null)
                 {
                     SyncBoardToSnapshot(_selectedHistoryMove.BoardSnapshot, _selectedHistoryMove.NextTurn);
+                }
+                else if (_isViewingInitialPosition)
+                {
+                    SyncBoardToSnapshot(_initialBoardSnapshot, PlayerColor.White);
                 }
                 else
                 {
@@ -162,7 +240,7 @@ namespace ChessGame.ViewModels
             }
         }
         
-        public bool IsViewingHistory => SelectedHistoryMove != null;
+        public bool IsViewingHistory => SelectedHistoryMove != null || _isViewingInitialPosition;
 
         public Brush LightSquareColor
         {
@@ -248,6 +326,43 @@ namespace ChessGame.ViewModels
         private Position? _pendingPromotionFrom;
         private Position? _pendingPromotionTo;
 
+        private bool _isFenPgnDialogVisible = false;
+        public bool IsFenPgnDialogVisible
+        {
+            get => _isFenPgnDialogVisible;
+            set { _isFenPgnDialogVisible = value; OnPropertyChanged(); }
+        }
+
+        private string _importText = "";
+        public string ImportText
+        {
+            get => _importText;
+            set { _importText = value; OnPropertyChanged(); }
+        }
+
+        private string _importErrorText = "";
+        public string ImportErrorText
+        {
+            get => _importErrorText;
+            set
+            {
+                _importErrorText = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasImportError));
+            }
+        }
+        public bool HasImportError => !string.IsNullOrEmpty(ImportErrorText);
+
+        private int _activeFenPgnTab = 0;
+        public int ActiveFenPgnTab
+        {
+            get => _activeFenPgnTab;
+            set { _activeFenPgnTab = value; OnPropertyChanged(); }
+        }
+
+        public string CurrentFen => FenService.GenerateFen(_game);
+        public string CurrentPgn => PgnService.GeneratePgn(_game, GetAllSanMoves(), BuildCurrentPgnMetadata());
+
         public ICommand SquareClickCommand { get; }
         public ICommand SendChatCommand { get; }
         public ICommand LeaveRoomCommand { get; }
@@ -255,12 +370,30 @@ namespace ChessGame.ViewModels
         public ICommand StartGameCommand { get; }
         public ICommand ReviewMoveCommand { get; }
         public ICommand PromoteCommand { get; }
+        public ICommand CopyFenCommand { get; }
+        public ICommand CopyPgnCommand { get; }
+        public ICommand SavePgnFileCommand { get; }
+        public ICommand LoadPgnFromFileCommand { get; }
+        public ICommand OpenFenPgnDialogCommand { get; }
+        public ICommand CloseFenPgnDialogCommand { get; }
+        public ICommand ApplyImportCommand { get; }
+        public ICommand SwitchToAnalysisModeCommand { get; }
+        public ICommand PlayBotMoveCommand { get; }
+        public ICommand ResetAnalysisBoardCommand { get; }
+        public ICommand FirstMoveCommand { get; }
+        public ICommand PreviousMoveCommand { get; }
+        public ICommand NextMoveCommand { get; }
+        public ICommand LastMoveCommand { get; }
+        public ICommand FlipBoardCommand { get; }
+        public ICommand ResignCommand { get; }
+        public ICommand OfferDrawCommand { get; }
 
         public GameRoomViewModel()
         {
             _game = new Game();
             InitializeSquares();
             SyncBoardToUI();
+            _initialBoardSnapshot = CreateBoardSnapshot();
 
             SquareClickCommand = new RelayCommand(OnSquareClicked);
             SendChatCommand = new RelayCommand(OnSendChat);
@@ -269,6 +402,23 @@ namespace ChessGame.ViewModels
             StartGameCommand = new RelayCommand(OnStartGame);
             ReviewMoveCommand = new RelayCommand(OnReviewMove);
             PromoteCommand = new RelayCommand(OnPromote);
+            CopyFenCommand = new RelayCommand(OnCopyFen);
+            CopyPgnCommand = new RelayCommand(OnCopyPgn);
+            SavePgnFileCommand = new RelayCommand(OnSavePgnFile);
+            LoadPgnFromFileCommand = new RelayCommand(OnLoadPgnFromFile);
+            OpenFenPgnDialogCommand = new RelayCommand(OnOpenFenPgnDialog);
+            CloseFenPgnDialogCommand = new RelayCommand(OnCloseFenPgnDialog);
+            ApplyImportCommand = new RelayCommand(OnApplyImport);
+            SwitchToAnalysisModeCommand = new RelayCommand(OnSwitchToAnalysisMode);
+            PlayBotMoveCommand = new RelayCommand(OnPlayBotMove);
+            ResetAnalysisBoardCommand = new RelayCommand(OnResetAnalysisBoard);
+            FirstMoveCommand = new RelayCommand(OnFirstMove);
+            PreviousMoveCommand = new RelayCommand(OnPreviousMove);
+            NextMoveCommand = new RelayCommand(OnNextMove);
+            LastMoveCommand = new RelayCommand(OnLastMove);
+            FlipBoardCommand = new RelayCommand(OnFlipBoard);
+            ResignCommand = new RelayCommand(OnResign);
+            OfferDrawCommand = new RelayCommand(OnOfferDraw);
 
             MyName = MainViewModel.Instance.PlayerName;
             MyNameDisplay = MyName;
@@ -278,15 +428,23 @@ namespace ChessGame.ViewModels
             _gameTimer.Interval = TimeSpan.FromMilliseconds(100);
             _gameTimer.Tick += GameTimer_Tick;
 
-            if (IsHotseatMode)
+            if (IsHotseatMode && !IsAnalysisMode)
             {
                 CurrentStatus = GameStatus.Playing;
                 StatusText = "Lượt: Trắng";
                 Services.AudioService.Instance.PlayGameStartSound();
             }
-            else
+            else if (!IsAnalysisMode)
             {
                 SetupNetworking();
+            }
+        }
+
+        public GameRoomViewModel(bool isAnalysisMode) : this()
+        {
+            if (isAnalysisMode)
+            {
+                OnSwitchToAnalysisMode(null);
             }
         }
 
@@ -319,7 +477,262 @@ namespace ChessGame.ViewModels
 
         private void OnReturnToCurrentGame(object? parameter)
         {
+            _isViewingInitialPosition = false;
             SelectedHistoryMove = null;
+        }
+
+        private void OnFirstMove(object? parameter)
+        {
+            var moves = GetAllMoveRecords();
+            if (moves.Count == 0) return;
+            if (SelectedHistoryMove != null) SelectedHistoryMove.IsSelected = false;
+            _selectedHistoryMove = null;
+            _isViewingInitialPosition = true;
+            OnPropertyChanged(nameof(SelectedHistoryMove));
+            OnPropertyChanged(nameof(IsViewingHistory));
+            SyncBoardToSnapshot(_initialBoardSnapshot, PlayerColor.White);
+        }
+
+        private void OnPreviousMove(object? parameter)
+        {
+            var moves = GetAllMoveRecords();
+            if (moves.Count == 0) return;
+
+            if (_isViewingInitialPosition)
+            {
+                return; // Already at the beginning
+            }
+
+            if (SelectedHistoryMove == null)
+            {
+                _isViewingInitialPosition = false;
+                SelectedHistoryMove = moves.LastOrDefault();
+                return;
+            }
+
+            int idx = moves.IndexOf(SelectedHistoryMove);
+            if (idx > 0)
+            {
+                _isViewingInitialPosition = false;
+                SelectedHistoryMove = moves[idx - 1];
+            }
+            else if (idx == 0)
+            {
+                if (SelectedHistoryMove != null) SelectedHistoryMove.IsSelected = false;
+                _selectedHistoryMove = null;
+                _isViewingInitialPosition = true;
+                OnPropertyChanged(nameof(SelectedHistoryMove));
+                OnPropertyChanged(nameof(IsViewingHistory));
+                SyncBoardToSnapshot(_initialBoardSnapshot, PlayerColor.White);
+            }
+        }
+
+        private void OnNextMove(object? parameter)
+        {
+            var moves = GetAllMoveRecords();
+            if (moves.Count == 0) return;
+
+            if (_isViewingInitialPosition)
+            {
+                _isViewingInitialPosition = false;
+                SelectedHistoryMove = moves.FirstOrDefault();
+                return;
+            }
+
+            if (SelectedHistoryMove == null)
+            {
+                return; // Already at live position
+            }
+
+            int idx = moves.IndexOf(SelectedHistoryMove);
+            if (idx >= 0 && idx < moves.Count - 1)
+            {
+                _isViewingInitialPosition = false;
+                SelectedHistoryMove = moves[idx + 1];
+            }
+            else
+            {
+                _isViewingInitialPosition = false;
+                SelectedHistoryMove = null;
+            }
+        }
+
+        private void OnLastMove(object? parameter)
+        {
+            _isViewingInitialPosition = false;
+            SelectedHistoryMove = null;
+        }
+
+        private void OnFlipBoard(object? parameter)
+        {
+            _isBoardRotated = !_isBoardRotated;
+            OnPropertyChanged(nameof(IsBoardRotated));
+            InitializeSquares();
+            if (SelectedHistoryMove != null)
+            {
+                SyncBoardToSnapshot(SelectedHistoryMove.BoardSnapshot, SelectedHistoryMove.NextTurn);
+            }
+            else if (_isViewingInitialPosition)
+            {
+                SyncBoardToSnapshot(_initialBoardSnapshot, PlayerColor.White);
+            }
+            else
+            {
+                SyncBoardToUI();
+            }
+        }
+
+        private void OnResign(object? parameter)
+        {
+            if (CurrentStatus != GameStatus.Playing) return;
+
+            var result = System.Windows.MessageBox.Show(
+                "Bạn có chắc chắn muốn đầu hàng ván cờ này không?",
+                "Xác nhận đầu hàng",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Question);
+
+            if (result != System.Windows.MessageBoxResult.Yes) return;
+
+            CurrentStatus = GameStatus.Finished;
+            StopTimers();
+            OnPropertyChanged(nameof(StartButtonText));
+            OnPropertyChanged(nameof(IsGameOver));
+            OnPropertyChanged(nameof(CanResignOrDraw));
+
+            if (IsMultiplayerMode)
+            {
+                _ = _network.BroadcastMessageAsync(new NetworkMessage { Type = MessageType.Resign, Payload = MainViewModel.Instance.PlayerName });
+                StatusText = "BẠN ĐÃ ĐẦU HÀNG. Đối thủ thắng!";
+                ChatMessages.Add("[Hệ thống] Bạn đã xin đầu hàng.");
+            }
+            else if (IsBotMode)
+            {
+                StatusText = "BẠN ĐÃ ĐẦU HÀNG. Bot đã thắng!";
+                if (_bot != null) BotSpeechText = _bot.GetSpeech(GameState.Won, _game);
+            }
+            else
+            {
+                string loser = _game.CurrentPlayer == PlayerColor.White ? "Trắng" : "Đen";
+                string winner = _game.CurrentPlayer == PlayerColor.White ? "ĐEN" : "TRẮNG";
+                StatusText = $"{loser} đã đầu hàng. {winner} THẮNG!";
+            }
+        }
+
+        private void OnOfferDraw(object? parameter)
+        {
+            if (CurrentStatus != GameStatus.Playing) return;
+
+            if (IsBotMode)
+            {
+                var drawDecision = System.Windows.MessageBox.Show(
+                    "Bạn muốn đề nghị hòa ván cờ với Bot?",
+                    "Đề nghị hòa",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Question);
+
+                if (drawDecision != System.Windows.MessageBoxResult.Yes) return;
+
+                int whiteScore = 0, blackScore = 0;
+                for (int r = 0; r < 8; r++)
+                {
+                    for (int c = 0; c < 8; c++)
+                    {
+                        var p = _game.Board[r, c];
+                        if (p != null)
+                        {
+                            int val = p.Type switch { PieceType.Queen => 9, PieceType.Rook => 5, PieceType.Bishop => 3, PieceType.Knight => 3, PieceType.Pawn => 1, _ => 0 };
+                            if (p.Color == PlayerColor.White) whiteScore += val;
+                            else blackScore += val;
+                        }
+                    }
+                }
+
+                bool botAccepts = Math.Abs(whiteScore - blackScore) <= 2 && MoveHistory.Count >= 10;
+                if (botAccepts)
+                {
+                    CurrentStatus = GameStatus.Finished;
+                    StopTimers();
+                    StatusText = "HÒA CỜ! Bot đã chấp nhận đề nghị hòa.";
+                    if (_bot != null) BotSpeechText = _bot.GetSpeech(GameState.Draw, _game);
+                    OnPropertyChanged(nameof(StartButtonText));
+                    OnPropertyChanged(nameof(IsGameOver));
+                    OnPropertyChanged(nameof(CanResignOrDraw));
+                    System.Windows.MessageBox.Show("Bot đã đồng ý hòa ván cờ!", "Hòa cờ", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
+                else
+                {
+                    StatusText = "Bot từ chối đề nghị hòa và muốn tiếp tục thi đấu!";
+                    System.Windows.MessageBox.Show("Bot từ chối lời đề nghị hòa và muốn đánh tiếp!", "Từ chối hòa", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
+            }
+            else if (IsHotseatMode)
+            {
+                var result = System.Windows.MessageBox.Show(
+                    "Cả hai bên có đồng ý kết thúc ván cờ với kết quả Hòa không?",
+                    "Thỏa thuận hòa cờ",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Question);
+
+                if (result == System.Windows.MessageBoxResult.Yes)
+                {
+                    CurrentStatus = GameStatus.Finished;
+                    StopTimers();
+                    StatusText = "HÒA CỜ (Thỏa thuận đôi bên)!";
+                    OnPropertyChanged(nameof(StartButtonText));
+                    OnPropertyChanged(nameof(IsGameOver));
+                    OnPropertyChanged(nameof(CanResignOrDraw));
+                }
+            }
+            else if (IsMultiplayerMode)
+            {
+                var result = System.Windows.MessageBox.Show(
+                    "Gửi lời mời cầu hòa tới đối thủ?",
+                    "Cầu hòa",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Question);
+
+                if (result == System.Windows.MessageBoxResult.Yes)
+                {
+                    _ = _network.BroadcastMessageAsync(new NetworkMessage { Type = MessageType.OfferDraw, Payload = MainViewModel.Instance.PlayerName });
+                    ChatMessages.Add("[Hệ thống] Bạn đã gửi lời đề nghị hòa cờ tới đối thủ.");
+                }
+            }
+        }
+
+        private List<MoveRecord> GetAllMoveRecords()
+        {
+            var list = new List<MoveRecord>();
+            foreach (var turn in MoveHistory)
+            {
+                if (turn.WhiteMove != null) list.Add(turn.WhiteMove);
+                if (turn.BlackMove != null) list.Add(turn.BlackMove);
+            }
+            return list;
+        }
+
+        private List<PieceDto> CreateBoardSnapshot()
+        {
+            var snapshot = new List<PieceDto>();
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    var p = _game.Board[r, c];
+                    if (p != null)
+                    {
+                        snapshot.Add(new PieceDto
+                        {
+                            Row = r,
+                            Col = c,
+                            Type = (int)p.Type,
+                            Color = (int)p.Color,
+                            HasMoved = p.HasMoved
+                        });
+                    }
+                }
+            }
+            return snapshot;
         }
 
         private void OnPromote(object? parameter)
@@ -351,7 +764,7 @@ namespace ChessGame.ViewModels
                         RecordMove(san, from, to);
                         SyncBoardToUI();
 
-                        if (_myColor != PlayerColor.None || MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient)
+                        if (!IsAnalysisMode && (_myColor != PlayerColor.None || MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient))
                         {
                             var move = new MoveAction { FromRow = from.Row, FromCol = from.Col, ToRow = to.Row, ToCol = to.Col, PromotionPieceType = (int)promotionType };
                             var msg = new NetworkMessage { Type = MessageType.Move, Payload = JsonSerializer.Serialize(move) };
@@ -359,7 +772,7 @@ namespace ChessGame.ViewModels
                             else _ = _network.SendMessageAsync(msg);
                         }
                         
-                        if (IsBotMode && CurrentStatus == GameStatus.Playing)
+                        if (!IsAnalysisMode && IsBotMode && CurrentStatus == GameStatus.Playing)
                         {
                             bool wasCapture = san.Contains("x");
                             if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game);
@@ -404,13 +817,17 @@ namespace ChessGame.ViewModels
                 _game = new Game();
                 MoveHistory.Clear();
                 SelectedHistoryMove = null;
+                _isViewingInitialPosition = false;
                 InitializeSquares();
                 SyncBoardToUI();
+                _initialBoardSnapshot = CreateBoardSnapshot();
             }
 
             CurrentStatus = GameStatus.Playing;
             _isRematch = true; // Next time it will be a rematch unless opponent leaves
             OnPropertyChanged(nameof(StartButtonText));
+            OnPropertyChanged(nameof(CanResignOrDraw));
+            OnPropertyChanged(nameof(IsBoardRotated));
             SyncBoardToUI();
             Services.AudioService.Instance.PlayGameStartSound();
 
@@ -658,10 +1075,14 @@ namespace ChessGame.ViewModels
                     _game = new Game();
                     MoveHistory.Clear();
                     SelectedHistoryMove = null;
+                    _isViewingInitialPosition = false;
                     InitializeSquares();
                     SyncBoardToUI();
+                    _initialBoardSnapshot = CreateBoardSnapshot();
                     
                     CurrentStatus = GameStatus.Playing;
+                    OnPropertyChanged(nameof(CanResignOrDraw));
+                    OnPropertyChanged(nameof(IsBoardRotated));
                     ChatMessages.Add("[Hệ thống] Trận đấu bắt đầu!");
                     Services.AudioService.Instance.PlayGameStartSound();
                     StartTimers();
@@ -694,6 +1115,55 @@ namespace ChessGame.ViewModels
 
                         if (!IsViewingHistory) SyncBoardToUI();
                     }
+                }
+                else if (msg.Type == MessageType.Resign)
+                {
+                    CurrentStatus = GameStatus.Finished;
+                    StopTimers();
+                    StatusText = $"{OpponentName} ĐÃ ĐẦU HÀNG. BẠN CHIẾN THẮNG!";
+                    ChatMessages.Add($"[Hệ thống] {OpponentName} đã xin đầu hàng. Bạn đã chiến thắng!");
+                    OnPropertyChanged(nameof(StartButtonText));
+                    OnPropertyChanged(nameof(IsGameOver));
+                    OnPropertyChanged(nameof(CanResignOrDraw));
+                }
+                else if (msg.Type == MessageType.OfferDraw)
+                {
+                    var drawChoice = System.Windows.MessageBox.Show(
+                        $"{OpponentName} muốn xin hòa cờ. Bạn có đồng ý hòa không?",
+                        "Lời mời hòa cờ",
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Question);
+
+                    if (drawChoice == System.Windows.MessageBoxResult.Yes)
+                    {
+                        _ = _network.BroadcastMessageAsync(new NetworkMessage { Type = MessageType.AcceptDraw });
+                        CurrentStatus = GameStatus.Finished;
+                        StopTimers();
+                        StatusText = "HÒA CỜ (Thỏa thuận đôi bên)!";
+                        ChatMessages.Add("[Hệ thống] Bạn đã đồng ý hòa ván cờ.");
+                        OnPropertyChanged(nameof(StartButtonText));
+                        OnPropertyChanged(nameof(IsGameOver));
+                        OnPropertyChanged(nameof(CanResignOrDraw));
+                    }
+                    else
+                    {
+                        _ = _network.BroadcastMessageAsync(new NetworkMessage { Type = MessageType.DeclineDraw });
+                        ChatMessages.Add("[Hệ thống] Bạn đã từ chối lời mời hòa cờ.");
+                    }
+                }
+                else if (msg.Type == MessageType.AcceptDraw)
+                {
+                    CurrentStatus = GameStatus.Finished;
+                    StopTimers();
+                    StatusText = "HÒA CỜ! Đối thủ đã đồng ý hòa.";
+                    ChatMessages.Add($"[Hệ thống] {OpponentName} đã chấp nhận đề nghị hòa cờ.");
+                    OnPropertyChanged(nameof(StartButtonText));
+                    OnPropertyChanged(nameof(IsGameOver));
+                    OnPropertyChanged(nameof(CanResignOrDraw));
+                }
+                else if (msg.Type == MessageType.DeclineDraw)
+                {
+                    ChatMessages.Add($"[Hệ thống] {OpponentName} đã từ chối lời đề nghị hòa cờ.");
                 }
             });
         }
@@ -792,6 +1262,8 @@ namespace ChessGame.ViewModels
             
             StatusText = status;
             UpdateCapturedPiecesDisplay();
+            OnPropertyChanged(nameof(CurrentFen));
+            OnPropertyChanged(nameof(CurrentPgn));
         }
         
         private void UpdateCapturedPiecesDisplay()
@@ -977,7 +1449,7 @@ namespace ChessGame.ViewModels
                             HandleTimeIncrement(PlayerColor.White == _game.CurrentPlayer ? PlayerColor.Black : PlayerColor.White);
                             RecordMove(san, from, to);
                             SyncBoardToUI();
-                            if (_myColor != PlayerColor.None && !IsBotMode)
+                            if (!IsAnalysisMode && _myColor != PlayerColor.None && !IsBotMode)
                             {
                                 var move = new MoveAction { FromRow = from.Row, FromCol = from.Col, ToRow = to.Row, ToCol = to.Col, PromotionPieceType = 5 };
                                 var msg = new NetworkMessage { Type = MessageType.Move, Payload = JsonSerializer.Serialize(move) };
@@ -985,7 +1457,7 @@ namespace ChessGame.ViewModels
                                 else _ = _network.SendMessageAsync(msg);
                             }
                             
-                            if (IsBotMode && CurrentStatus == GameStatus.Playing)
+                            if (!IsAnalysisMode && IsBotMode && CurrentStatus == GameStatus.Playing)
                             {
                                 bool wasCapture = san.Contains("x");
                                 if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game);
@@ -1267,6 +1739,9 @@ namespace ChessGame.ViewModels
                     MoveHistory[idx] = new TurnRecord { TurnNumber = lastTurn.TurnNumber, WhiteMove = lastTurn.WhiteMove, BlackMove = lastTurn.BlackMove };
                 }
             }
+
+            OnPropertyChanged(nameof(CurrentFen));
+            OnPropertyChanged(nameof(CurrentPgn));
         }
 
         private void SendGameStateSync(object? targetClient = null)
@@ -1313,6 +1788,11 @@ namespace ChessGame.ViewModels
                 _lastTickTime = DateTime.UtcNow;
                 _gameTimer?.Start();
             }
+        }
+
+        private void StopTimers()
+        {
+            _gameTimer?.Stop();
         }
 
         private void GameTimer_Tick(object? sender, EventArgs e)
@@ -1409,6 +1889,434 @@ namespace ChessGame.ViewModels
                 PieceType.Pawn => p.Color == PlayerColor.White ? "♙" : "♟",
                 _ => ""
             };
+        }
+
+        private PgnMetadata BuildCurrentPgnMetadata()
+        {
+            string whitePlayer = _myColor == PlayerColor.Black ? OpponentNameDisplay : MyNameDisplay;
+            string blackPlayer = _myColor == PlayerColor.Black ? MyNameDisplay : OpponentNameDisplay;
+            if (IsHotseatMode)
+            {
+                whitePlayer = "Trắng";
+                blackPlayer = "Đen";
+            }
+
+            string result = "*";
+            if (_game.IsCheckmate)
+            {
+                result = _game.CurrentPlayer == PlayerColor.White ? "0-1" : "1-0";
+            }
+            else if (_game.IsStalemate || _game.DrawReason != DrawReason.None)
+            {
+                result = "1/2-1/2";
+            }
+
+            return new PgnMetadata
+            {
+                Event = IsBotMode ? $"Trận đấu với Bot {OpponentNameDisplay}" : (IsMultiplayerMode ? "Trận đấu mạng (Multiplayer)" : "Đấu trên một máy (Hotseat)"),
+                Site = "ChessSolution",
+                Date = DateTime.Now.ToString("yyyy.MM.dd"),
+                Round = "1",
+                White = string.IsNullOrWhiteSpace(whitePlayer) ? "Trắng" : whitePlayer,
+                Black = string.IsNullOrWhiteSpace(blackPlayer) ? "Đen" : blackPlayer,
+                Result = result
+            };
+        }
+
+        private List<string> GetAllSanMoves()
+        {
+            var list = new List<string>();
+            foreach (var turn in MoveHistory)
+            {
+                if (turn.WhiteMove != null && !string.IsNullOrEmpty(turn.WhiteMove.SanNotation))
+                {
+                    list.Add(turn.WhiteMove.SanNotation);
+                }
+                if (turn.BlackMove != null && !string.IsNullOrEmpty(turn.BlackMove.SanNotation))
+                {
+                    list.Add(turn.BlackMove.SanNotation);
+                }
+            }
+            return list;
+        }
+
+        private void OnCopyFen(object? parameter)
+        {
+            try
+            {
+                string fen = CurrentFen;
+                System.Windows.Clipboard.SetText(fen);
+                StatusText = "Đã sao chép FEN vào Clipboard!";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "Lỗi khi sao chép FEN: " + ex.Message;
+            }
+        }
+
+        private void OnCopyPgn(object? parameter)
+        {
+            try
+            {
+                string pgn = CurrentPgn;
+                System.Windows.Clipboard.SetText(pgn);
+                StatusText = "Đã sao chép PGN vào Clipboard!";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "Lỗi khi sao chép PGN: " + ex.Message;
+            }
+        }
+
+        private void OnSavePgnFile(object? parameter)
+        {
+            try
+            {
+                var saveDlg = new SaveFileDialog
+                {
+                    Title = "Lưu biên bản ván cờ (PGN)",
+                    Filter = "Chess PGN Files (*.pgn)|*.pgn|Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
+                    DefaultExt = ".pgn",
+                    FileName = $"chess_game_{DateTime.Now:yyyyMMdd_HHmmss}.pgn"
+                };
+
+                if (saveDlg.ShowDialog() == true)
+                {
+                    string pgn = CurrentPgn;
+                    File.WriteAllText(saveDlg.FileName, pgn, System.Text.Encoding.UTF8);
+                    StatusText = $"Đã lưu file PGN: {Path.GetFileName(saveDlg.FileName)}";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText = "Lỗi khi lưu file PGN: " + ex.Message;
+            }
+        }
+
+        private void OnLoadPgnFromFile(object? parameter)
+        {
+            try
+            {
+                var openDlg = new OpenFileDialog
+                {
+                    Title = "Chọn file PGN hoặc FEN",
+                    Filter = "Chess Files (*.pgn;*.fen;*.txt)|*.pgn;*.fen;*.txt|All Files (*.*)|*.*"
+                };
+
+                if (openDlg.ShowDialog() == true)
+                {
+                    string content = File.ReadAllText(openDlg.FileName, System.Text.Encoding.UTF8);
+                    ImportText = content;
+                    ActiveFenPgnTab = 1;
+                    OnApplyImport(null);
+                }
+            }
+            catch (Exception ex)
+            {
+                ImportErrorText = "Lỗi khi đọc file: " + ex.Message;
+            }
+        }
+
+        private void OnOpenFenPgnDialog(object? parameter)
+        {
+            if (parameter != null && int.TryParse(parameter.ToString(), out int tabIndex))
+            {
+                ActiveFenPgnTab = tabIndex;
+            }
+            ImportErrorText = "";
+            OnPropertyChanged(nameof(CanImport));
+            OnPropertyChanged(nameof(IsImportDisabled));
+            OnPropertyChanged(nameof(ImportDisabledReason));
+            OnPropertyChanged(nameof(CurrentFen));
+            OnPropertyChanged(nameof(CurrentPgn));
+            IsFenPgnDialogVisible = true;
+        }
+
+        private void OnCloseFenPgnDialog(object? parameter)
+        {
+            IsFenPgnDialogVisible = false;
+        }
+
+        private void OnSwitchToAnalysisMode(object? parameter)
+        {
+            if (MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient)
+            {
+                UnsubscribeNetworking();
+                _network.StopAll();
+                MainViewModel.Instance.IsMultiplayerHost = false;
+                MainViewModel.Instance.IsMultiplayerClient = false;
+            }
+
+            _gameTimer?.Stop();
+            _isTimeInfinite = true;
+            _myColor = PlayerColor.None; // Cho phép đi cả Trắng lẫn Đen
+            _isSpectator = false;
+            IsAnalysisMode = true;
+
+            CurrentStatus = GameStatus.Playing;
+            MyNameDisplay = "Phân tích viên";
+            OpponentNameDisplay = "Bàn cờ Phân tích / Tự do";
+            MyTimeDisplay = "∞";
+            OpponentTimeDisplay = "∞";
+
+            ImportErrorText = "";
+            OnPropertyChanged(nameof(CanImport));
+            OnPropertyChanged(nameof(IsImportDisabled));
+            OnPropertyChanged(nameof(ImportDisabledReason));
+            OnPropertyChanged(nameof(CanStartGame));
+            OnPropertyChanged(nameof(IsGameOver));
+            OnPropertyChanged(nameof(_isMyTurn));
+            OnPropertyChanged(nameof(CurrentFen));
+            OnPropertyChanged(nameof(CurrentPgn));
+
+            StatusText = $"Chế độ Phân tích: Lượt {(_game.CurrentPlayer == PlayerColor.White ? "Trắng" : "Đen")}";
+            ChatMessages.Add("[Hệ thống] Đã chuyển sang Chế độ Phân tích thế cờ. Bạn có thể tự do thử nghiệm cho cả 2 bên hoặc nạp FEN/PGN.");
+        }
+
+        private void OnResetAnalysisBoard(object? parameter)
+        {
+            _game = new Game();
+            MoveHistory.Clear();
+            SelectedHistoryMove = null;
+            _isViewingInitialPosition = false;
+            _lastMoveFrom = null;
+            _lastMoveTo = null;
+            ClearSelection();
+            InitializeSquares();
+            SyncBoardToUI();
+            _initialBoardSnapshot = CreateBoardSnapshot();
+            StatusText = "Bàn cờ phân tích đã được đặt lại ban đầu.";
+        }
+
+        private async void OnPlayBotMove(object? parameter)
+        {
+            if (_isBotThinking || _game.IsGameOver) return;
+
+            if (_bot == null)
+            {
+                _bot = new ChessBot.Bots.QuanVua.QuanVuaBot();
+            }
+
+            _isBotThinking = true;
+            OnPropertyChanged(nameof(_isMyTurn));
+            StatusText = "Bot đang phân tích và tính toán nước đi...";
+
+            try
+            {
+                var move = await _bot.CalculateMoveAsync(_game);
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    string san = GenerateSan(move.From, move.To);
+                    if (move.Promotion.HasValue)
+                    {
+                        string promoChar = move.Promotion.Value switch
+                        {
+                            PieceType.Rook => "R",
+                            PieceType.Bishop => "B",
+                            PieceType.Knight => "N",
+                            _ => "Q"
+                        };
+                        san += "=" + promoChar;
+                    }
+
+                    _game.MovePiece(move.From, move.To, move.Promotion ?? PieceType.Queen);
+                    RecordMove(san, move.From, move.To);
+                    SyncBoardToUI();
+                    StatusText = $"Bot gợi ý: {san} (Lượt tiếp theo: {(_game.CurrentPlayer == PlayerColor.White ? "Trắng" : "Đen")})";
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    StatusText = "Lỗi khi Bot phân tích: " + ex.Message;
+                });
+            }
+            finally
+            {
+                _isBotThinking = false;
+                System.Windows.Application.Current.Dispatcher.Invoke(() => OnPropertyChanged(nameof(_isMyTurn)));
+            }
+        }
+
+        private void OnApplyImport(object? parameter)
+        {
+            ImportErrorText = "";
+            if (!CanImport)
+            {
+                ImportErrorText = ImportDisabledReason;
+                return;
+            }
+
+            string input = (ImportText ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                ImportErrorText = "Vui lòng nhập hoặc dán mã FEN / PGN.";
+                return;
+            }
+
+            // Detect if input is PGN or FEN
+            bool looksLikePgn = input.Contains('[') || (Regex.IsMatch(input, @"\b1\s*\.") && !input.Contains('/'));
+            string? pgnError = null;
+            string? fallbackPgnErr = null;
+
+            if (looksLikePgn)
+            {
+                if (PgnService.TryLoadPgn(input, out var loadedGame, out var pgnMoves, out var metadata, out pgnError))
+                {
+                    ApplyLoadedPgn(loadedGame!, pgnMoves, metadata);
+                    return;
+                }
+            }
+
+            // Try FEN
+            if (FenService.TryParseFen(input, out var loadedFenGame, out var fenError))
+            {
+                ApplyLoadedFen(loadedFenGame!);
+                return;
+            }
+
+            // If FEN failed, maybe it's raw PGN without tags
+            if (!looksLikePgn && PgnService.TryLoadPgn(input, out var fallbackPgnGame, out var fallbackPgnMoves, out var fallbackMeta, out fallbackPgnErr))
+            {
+                ApplyLoadedPgn(fallbackPgnGame!, fallbackPgnMoves, fallbackMeta);
+                return;
+            }
+
+            ImportErrorText = fenError ?? pgnError ?? fallbackPgnErr ?? "Không nhận diện được định dạng FEN hoặc PGN hợp lệ.";
+        }
+
+        private void ApplyLoadedFen(Game newGame)
+        {
+            _game = newGame;
+            MoveHistory.Clear();
+            SelectedHistoryMove = null;
+            _isViewingInitialPosition = false;
+            _lastMoveFrom = null;
+            _lastMoveTo = null;
+
+            InitializeSquares();
+            SyncBoardToUI();
+            _initialBoardSnapshot = CreateBoardSnapshot();
+
+            IsFenPgnDialogVisible = false;
+            StatusText = "Đã nạp thế cờ từ FEN thành công!";
+            Services.AudioService.Instance.PlayGameStartSound();
+
+            if (IsBotMode && !IsAnalysisMode)
+            {
+                BotSpeechText = _bot!.GetSpeech(GameState.Start, _game);
+                if (_game.CurrentPlayer != _myColor && CurrentStatus == GameStatus.Playing)
+                {
+                    _ = HandleBotTurnAsync();
+                }
+            }
+        }
+
+        private void ApplyLoadedPgn(Game loadedGame, List<PgnMove> moves, PgnMetadata metadata)
+        {
+            Game replayGame = !string.IsNullOrEmpty(metadata.Fen) 
+                ? FenService.LoadGameFromFen(metadata.Fen) 
+                : new Game();
+
+            MoveHistory.Clear();
+            SelectedHistoryMove = null;
+            _isViewingInitialPosition = false;
+
+            TurnRecord? currentTurn = null;
+
+            foreach (var m in moves)
+            {
+                replayGame.MovePiece(m.From, m.To, m.Promotion ?? PieceType.Queen);
+
+                var snapshot = new List<PieceDto>();
+                for (int r = 0; r < 8; r++)
+                {
+                    for (int c = 0; c < 8; c++)
+                    {
+                        var p = replayGame.Board[r, c];
+                        if (p != null)
+                        {
+                            snapshot.Add(new PieceDto
+                            {
+                                Row = r,
+                                Col = c,
+                                Type = (int)p.Type,
+                                Color = (int)p.Color,
+                                HasMoved = p.HasMoved
+                            });
+                        }
+                    }
+                }
+
+                var record = new MoveRecord
+                {
+                    MoveNumber = m.TurnNumber,
+                    SanNotation = m.San,
+                    FromRow = m.From.Row,
+                    FromCol = m.From.Col,
+                    ToRow = m.To.Row,
+                    ToCol = m.To.Col,
+                    BoardSnapshot = snapshot,
+                    NextTurn = replayGame.CurrentPlayer
+                };
+
+                if (m.Color == PlayerColor.White)
+                {
+                    currentTurn = new TurnRecord
+                    {
+                        TurnNumber = MoveHistory.Count + 1,
+                        WhiteMove = record
+                    };
+                    MoveHistory.Add(currentTurn);
+                }
+                else
+                {
+                    if (currentTurn == null)
+                    {
+                        currentTurn = new TurnRecord
+                        {
+                            TurnNumber = MoveHistory.Count + 1,
+                            BlackMove = record
+                        };
+                        MoveHistory.Add(currentTurn);
+                    }
+                    else
+                    {
+                        currentTurn.BlackMove = record;
+                        int idx = MoveHistory.IndexOf(currentTurn);
+                        MoveHistory[idx] = new TurnRecord
+                        {
+                            TurnNumber = currentTurn.TurnNumber,
+                            WhiteMove = currentTurn.WhiteMove,
+                            BlackMove = currentTurn.BlackMove
+                        };
+                        currentTurn = null;
+                    }
+                }
+            }
+
+            _game = loadedGame;
+            if (moves.Count > 0)
+            {
+                var last = moves.Last();
+                _lastMoveFrom = last.From;
+                _lastMoveTo = last.To;
+            }
+            else
+            {
+                _lastMoveFrom = null;
+                _lastMoveTo = null;
+            }
+
+            InitializeSquares();
+            SyncBoardToUI();
+            _initialBoardSnapshot = CreateBoardSnapshot();
+
+            IsFenPgnDialogVisible = false;
+            StatusText = $"Đã nạp ván cờ PGN ({moves.Count} nước đi)!";
+            Services.AudioService.Instance.PlayGameStartSound();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
