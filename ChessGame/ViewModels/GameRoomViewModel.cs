@@ -637,7 +637,7 @@ namespace ChessGame.ViewModels
             else if (IsBotMode)
             {
                 StatusText = "BẠN ĐÃ ĐẦU HÀNG. Bot đã thắng!";
-                if (_bot != null) BotSpeechText = _bot.GetSpeech(GameState.Won, _game);
+                if (_bot != null) BotSpeechText = _bot.GetSpeech(GameState.PlayerResigned, _game);
             }
             else
             {
@@ -691,6 +691,7 @@ namespace ChessGame.ViewModels
                 else
                 {
                     StatusText = "Bot từ chối đề nghị hòa và muốn tiếp tục thi đấu!";
+                    if (_bot != null) BotSpeechText = _bot.GetSpeech(GameState.DrawRefused, _game);
                     System.Windows.MessageBox.Show("Bot từ chối lời đề nghị hòa và muốn đánh tiếp!", "Từ chối hòa", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 }
             }
@@ -785,6 +786,14 @@ namespace ChessGame.ViewModels
                     };
                     san += "=" + promoChar;
 
+                    Piece? targetPiece = _game.Board[to];
+                    Piece? movingPiece = _game.Board[from];
+                    if (movingPiece?.Type == PieceType.Pawn && to == _game.Board.EnPassantTarget)
+                    {
+                        targetPiece = new Pawn(PlayerColor.Black);
+                    }
+                    bool isCastle = movingPiece?.Type == PieceType.King && Math.Abs(from.Col - to.Col) == 2;
+
                     if (_game.MovePiece(from, to, promotionType))
                     {
                         ClearSelection();
@@ -802,8 +811,19 @@ namespace ChessGame.ViewModels
                         
                         if (!IsAnalysisMode && IsBotMode && CurrentStatus == GameStatus.Playing)
                         {
-                            bool wasCapture = san.Contains("x");
-                            if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game);
+                            var playerMove = new BotMove(from, to, promotionType, targetPiece?.Type, movingPiece?.Type ?? PieceType.None, _game.IsCheck, isCastle, _game.FullmoveNumber);
+                            if (targetPiece != null)
+                            {
+                                BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game, playerMove);
+                            }
+                            else if (_game.IsCheck)
+                            {
+                                BotSpeechText = _bot!.GetSpeech(GameState.Checked, _game, playerMove);
+                            }
+                            else
+                            {
+                                BotSpeechText = _bot!.GetSpeech(GameState.Promotion, _game, playerMove);
+                            }
                             _ = HandleBotTurnAsync();
                         }
                     }
@@ -1480,6 +1500,14 @@ namespace ChessGame.ViewModels
                         
                         string san = GenerateSan(from, to);
 
+                        Piece? movingPiece = _game.Board[from];
+                        Piece? targetPiece = _game.Board[to];
+                        if (movingPiece?.Type == PieceType.Pawn && to == _game.Board.EnPassantTarget)
+                        {
+                            targetPiece = new Pawn(PlayerColor.Black);
+                        }
+                        bool isCastle = movingPiece?.Type == PieceType.King && Math.Abs(from.Col - to.Col) == 2;
+
                         if (_game.MovePiece(from, to))
                         {
                             ClearSelection();
@@ -1496,8 +1524,19 @@ namespace ChessGame.ViewModels
                             
                             if (!IsAnalysisMode && IsBotMode && CurrentStatus == GameStatus.Playing)
                             {
-                                bool wasCapture = san.Contains("x");
-                                if (wasCapture) BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game);
+                                var playerMove = new BotMove(from, to, null, targetPiece?.Type, movingPiece?.Type ?? PieceType.None, _game.IsCheck, isCastle, _game.FullmoveNumber);
+                                if (targetPiece != null)
+                                {
+                                    BotSpeechText = _bot!.GetSpeech(GameState.Captured, _game, playerMove);
+                                }
+                                else if (_game.IsCheck)
+                                {
+                                    BotSpeechText = _bot!.GetSpeech(GameState.Checked, _game, playerMove);
+                                }
+                                else if (isCastle)
+                                {
+                                    BotSpeechText = _bot!.GetSpeech(GameState.Castled, _game, playerMove);
+                                }
                                 _ = HandleBotTurnAsync();
                             }
                         }
@@ -1563,7 +1602,7 @@ namespace ChessGame.ViewModels
             _isBotThinking = true;
             OnPropertyChanged(nameof(_isMyTurn));
             
-            if (string.IsNullOrEmpty(BotSpeechText) || MoveHistory.Count <= 1)
+            if (string.IsNullOrEmpty(BotSpeechText) || MoveHistory.Count <= 1 || Random.Shared.Next(100) < 30)
             {
                 BotSpeechText = _bot.GetSpeech(GameState.Thinking, _game);
             }
@@ -1589,7 +1628,13 @@ namespace ChessGame.ViewModels
                         san += "=" + promoChar;
                     }
                     
-                    bool wasCapture = _game.Board[move.To] != null;
+                    Piece? movingPiece = _game.Board[move.From];
+                    Piece? capturedPiece = _game.Board[move.To];
+                    if (movingPiece?.Type == PieceType.Pawn && move.To == _game.Board.EnPassantTarget)
+                    {
+                        capturedPiece = new Pawn(PlayerColor.White);
+                    }
+                    bool isCastle = movingPiece?.Type == PieceType.King && Math.Abs(move.From.Col - move.To.Col) == 2;
                     
                     _game.MovePiece(move.From, move.To, move.Promotion ?? PieceType.Queen);
                     HandleTimeIncrement(PlayerColor.White == _game.CurrentPlayer ? PlayerColor.Black : PlayerColor.White);
@@ -1598,7 +1643,20 @@ namespace ChessGame.ViewModels
 
                     if (CurrentStatus == GameStatus.Playing)
                     {
-                        BotSpeechText = _bot.GetSpeech(GameState.Moved, _game, move);
+                        var executedMove = new BotMove(move.From, move.To, move.Promotion, capturedPiece?.Type, movingPiece?.Type ?? PieceType.None, _game.IsCheck, isCastle, _game.FullmoveNumber);
+
+                        if (_game.IsCheck)
+                        {
+                            BotSpeechText = _bot.GetSpeech(GameState.BotDeliveredCheck, _game, executedMove);
+                        }
+                        else if (capturedPiece != null)
+                        {
+                            BotSpeechText = _bot.GetSpeech(GameState.BotCaptured, _game, executedMove);
+                        }
+                        else
+                        {
+                            BotSpeechText = _bot.GetSpeech(GameState.Moved, _game, executedMove);
+                        }
                     }
                 });
             }
@@ -1870,6 +1928,13 @@ namespace ChessGame.ViewModels
             string winner = timedOutPlayer == PlayerColor.White ? "ĐEN" : "TRẮNG";
             StatusText = $"HẾT THỜI GIAN! {winner} THẮNG!";
             Services.AudioService.Instance.PlayGameEndSound();
+
+            if (IsBotMode && _bot != null)
+            {
+                BotSpeechText = timedOutPlayer == _myColor
+                    ? _bot.GetSpeech(GameState.TimeoutWon, _game)
+                    : _bot.GetSpeech(GameState.TimeoutLost, _game);
+            }
         }
 
         private void HandleTimeIncrement(PlayerColor justMovedPlayer)

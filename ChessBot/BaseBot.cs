@@ -13,8 +13,9 @@ namespace ChessBot
         public abstract int Elo { get; }
 
         protected static readonly Random Rnd = new Random();
+        protected string _lastSpeech = "";
 
-        private UciEngine _engine;
+        private UciEngine? _engine;
         private bool _isDisposed;
 
         protected BaseBot()
@@ -32,7 +33,7 @@ namespace ChessBot
             if (!File.Exists(enginePath))
             {
                 // Fallback for development
-                string currentDir = baseDir;
+                string? currentDir = baseDir;
                 while (!string.IsNullOrEmpty(currentDir))
                 {
                     string potentialPath = Path.Combine(currentDir, "ChessBot", "Engine", engineName);
@@ -57,10 +58,90 @@ namespace ChessBot
         {
             if (_isDisposed) throw new ObjectDisposedException(nameof(BaseBot));
             if (_engine == null) InitializeEngine();
-            return await _engine.GetBestMoveAsync(game);
+            return await _engine!.GetBestMoveAsync(game);
         }
 
-        public abstract string GetSpeech(GameState state, Game game = null, BotMove? lastMove = null);
+        public abstract string GetSpeech(GameState state, Game? game = null, BotMove? lastMove = null);
+
+        protected string PickRandom(string[] lines)
+        {
+            if (lines == null || lines.Length == 0) return "...";
+            if (lines.Length == 1) return lines[0];
+
+            int idx = Rnd.Next(lines.Length);
+            if (lines[idx] == _lastSpeech)
+            {
+                idx = (idx + 1 + Rnd.Next(lines.Length - 1)) % lines.Length;
+            }
+
+            _lastSpeech = lines[idx];
+            return _lastSpeech;
+        }
+
+        protected int GetMaterialBalance(Game? game, PlayerColor botColor = PlayerColor.Black)
+        {
+            if (game == null) return 0;
+
+            int botScore = 0;
+            int oppScore = 0;
+
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    var p = game.Board[r, c];
+                    if (p != null)
+                    {
+                        int val = p.Type switch
+                        {
+                            PieceType.Queen => 9,
+                            PieceType.Rook => 5,
+                            PieceType.Bishop => 3,
+                            PieceType.Knight => 3,
+                            PieceType.Pawn => 1,
+                            _ => 0
+                        };
+
+                        if (p.Color == botColor) botScore += val;
+                        else botScore -= val;
+                    }
+                }
+            }
+
+            return botScore;
+        }
+
+        protected bool IsEndgame(Game? game)
+        {
+            if (game == null) return false;
+
+            int totalMaterial = 0;
+            int queenCount = 0;
+
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    var p = game.Board[r, c];
+                    if (p != null)
+                    {
+                        if (p.Type == PieceType.Queen) queenCount++;
+                        int val = p.Type switch
+                        {
+                            PieceType.Queen => 9,
+                            PieceType.Rook => 5,
+                            PieceType.Bishop => 3,
+                            PieceType.Knight => 3,
+                            PieceType.Pawn => 1,
+                            _ => 0
+                        };
+                        totalMaterial += val;
+                    }
+                }
+            }
+
+            return queenCount == 0 || totalMaterial <= 26;
+        }
 
         public void Dispose()
         {
