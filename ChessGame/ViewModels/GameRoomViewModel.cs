@@ -25,6 +25,13 @@ namespace ChessGame.ViewModels
         Finished
     }
 
+    public enum BotSideChoice
+    {
+        White,
+        Random,
+        Black
+    }
+
     public class GameRoomViewModel : INotifyPropertyChanged
     {
         private Game _game;
@@ -56,6 +63,10 @@ namespace ChessGame.ViewModels
                 if (value > 30) value = 30;
                 _gameTimeMinutes = value;
                 OnPropertyChanged();
+                if (CurrentStatus == GameStatus.Waiting)
+                {
+                    UpdatePreGameTimePreview();
+                }
             }
         }
 
@@ -97,6 +108,7 @@ namespace ChessGame.ViewModels
                 _currentStatus = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanStartGame));
+                OnPropertyChanged(nameof(CanConfigureBotMatch));
                 OnPropertyChanged(nameof(StatusText));
                 OnPropertyChanged(nameof(IsGameOver));
                 OnPropertyChanged(nameof(CanResignOrDraw));
@@ -121,6 +133,7 @@ namespace ChessGame.ViewModels
                 OnPropertyChanged(nameof(IsImportDisabled));
                 OnPropertyChanged(nameof(ImportDisabledReason));
                 OnPropertyChanged(nameof(CanStartGame));
+                OnPropertyChanged(nameof(CanConfigureBotMatch));
                 OnPropertyChanged(nameof(_isMyTurn));
             }
         }
@@ -164,6 +177,51 @@ namespace ChessGame.ViewModels
         
         public IChessBot? Bot => _bot;
         
+        private BotSideChoice _selectedBotSide = BotSideChoice.White;
+        public BotSideChoice SelectedBotSide
+        {
+            get => _selectedBotSide;
+            set
+            {
+                if (_selectedBotSide == value) return;
+                _selectedBotSide = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsBotSideWhite));
+                OnPropertyChanged(nameof(IsBotSideRandom));
+                OnPropertyChanged(nameof(IsBotSideBlack));
+
+                if (IsBotMode && CurrentStatus == GameStatus.Waiting)
+                {
+                    _myColor = value == BotSideChoice.Black ? PlayerColor.Black : PlayerColor.White;
+                    _isBoardRotated = value == BotSideChoice.Black;
+                    OnPropertyChanged(nameof(IsBoardRotated));
+                    InitializeSquares();
+                    SyncBoardToUI();
+                    UpdatePreGameTimePreview();
+                }
+            }
+        }
+
+        public bool IsBotSideWhite
+        {
+            get => SelectedBotSide == BotSideChoice.White;
+            set { if (value) SelectedBotSide = BotSideChoice.White; }
+        }
+
+        public bool IsBotSideRandom
+        {
+            get => SelectedBotSide == BotSideChoice.Random;
+            set { if (value) SelectedBotSide = BotSideChoice.Random; }
+        }
+
+        public bool IsBotSideBlack
+        {
+            get => SelectedBotSide == BotSideChoice.Black;
+            set { if (value) SelectedBotSide = BotSideChoice.Black; }
+        }
+
+        public bool CanConfigureBotMatch => IsBotMode && CurrentStatus != GameStatus.Playing;
+
         public bool CanStartGame => !IsAnalysisMode && ((IsHost && _playerCount == 2 && CurrentStatus != GameStatus.Playing) || 
                                     (IsHotseatMode && CurrentStatus != GameStatus.Playing) ||
                                     (IsBotMode && CurrentStatus != GameStatus.Playing));
@@ -290,7 +348,8 @@ namespace ChessGame.ViewModels
         {
             get
             {
-                if (CurrentStatus == GameStatus.Waiting) return "Phòng đang chờ Bắt đầu...";
+                if (CurrentStatus == GameStatus.Waiting)
+                    return IsBotMode ? "Chọn màu quân & thời gian rồi bấm Bắt đầu" : "Phòng đang chờ Bắt đầu...";
                 if (CurrentStatus == GameStatus.Finished) return _statusText;
                 return _statusText;
             }
@@ -396,6 +455,7 @@ namespace ChessGame.ViewModels
         public ICommand LeaveRoomCommand { get; }
         public ICommand ReturnToCurrentGameCommand { get; }
         public ICommand StartGameCommand { get; }
+        public ICommand SetTimeControlCommand { get; }
         public ICommand ReviewMoveCommand { get; }
         public ICommand PromoteCommand { get; }
         public ICommand CopyFenCommand { get; }
@@ -428,6 +488,18 @@ namespace ChessGame.ViewModels
             LeaveRoomCommand = new RelayCommand(OnLeaveRoom);
             ReturnToCurrentGameCommand = new RelayCommand(OnReturnToCurrentGame);
             StartGameCommand = new RelayCommand(OnStartGame);
+            SetTimeControlCommand = new RelayCommand(param =>
+            {
+                if (param is string s)
+                {
+                    var parts = s.Split(',');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int mins) && int.TryParse(parts[1], out int inc))
+                    {
+                        GameTimeMinutes = mins;
+                        TimeIncrementSeconds = inc;
+                    }
+                }
+            });
             ReviewMoveCommand = new RelayCommand(OnReviewMove);
             PromoteCommand = new RelayCommand(OnPromote);
             CopyFenCommand = new RelayCommand(OnCopyFen);
@@ -479,15 +551,17 @@ namespace ChessGame.ViewModels
         public GameRoomViewModel(IChessBot bot) : this()
         {
             _bot = bot;
-            _myColor = PlayerColor.White; // Player is always White vs Bot for now
+            _myColor = PlayerColor.White;
             OpponentName = bot.Name;
             OpponentNameDisplay = $"{bot.Name} (Elo: {bot.Elo})";
             BotSpeechText = bot.GetSpeech(GameState.Start, _game);
             
-            CurrentStatus = GameStatus.Playing;
-            StatusText = "Lượt: Trắng";
-            Services.AudioService.Instance.PlayGameStartSound();
-            StartTimers();
+            CurrentStatus = GameStatus.Waiting;
+            OnPropertyChanged(nameof(IsBotMode));
+            OnPropertyChanged(nameof(CanStartGame));
+            OnPropertyChanged(nameof(CanConfigureBotMatch));
+            OnPropertyChanged(nameof(StatusText));
+            UpdatePreGameTimePreview();
         }
 
         private void OnLeaveRoom(object? parameter)
@@ -855,7 +929,7 @@ namespace ChessGame.ViewModels
             
             if (CurrentStatus == GameStatus.Finished)
             {
-                if (_isRematch)
+                if (_isRematch && !IsBotMode)
                 {
                     _myColor = _myColor == PlayerColor.White ? PlayerColor.Black : PlayerColor.White;
                     _isBoardRotated = _myColor == PlayerColor.Black;
@@ -871,11 +945,24 @@ namespace ChessGame.ViewModels
                 _initialBoardSnapshot = CreateBoardSnapshot();
             }
 
+            if (IsBotMode)
+            {
+                _myColor = SelectedBotSide switch
+                {
+                    BotSideChoice.White => PlayerColor.White,
+                    BotSideChoice.Black => PlayerColor.Black,
+                    BotSideChoice.Random => Random.Shared.Next(2) == 0 ? PlayerColor.White : PlayerColor.Black,
+                    _ => PlayerColor.White
+                };
+                _isBoardRotated = _myColor == PlayerColor.Black;
+            }
+
             CurrentStatus = GameStatus.Playing;
             _isRematch = true; // Next time it will be a rematch unless opponent leaves
             OnPropertyChanged(nameof(StartButtonText));
             OnPropertyChanged(nameof(CanResignOrDraw));
             OnPropertyChanged(nameof(IsBoardRotated));
+            InitializeSquares();
             SyncBoardToUI();
             Services.AudioService.Instance.PlayGameStartSound();
 
@@ -892,7 +979,14 @@ namespace ChessGame.ViewModels
             }
             else if (IsBotMode)
             {
+                StatusText = _game.CurrentPlayer == PlayerColor.White ? "Lượt: Trắng" : "Lượt: Đen";
                 BotSpeechText = _bot!.GetSpeech(GameState.Start, _game);
+                StartTimers();
+                if (_game.CurrentPlayer != _myColor)
+                {
+                    _ = HandleBotTurnAsync();
+                }
+                return;
             }
             StartTimers();
         }
@@ -1865,6 +1959,23 @@ namespace ChessGame.ViewModels
         }
 
         private DateTime _lastTickTime;
+
+        private void UpdatePreGameTimePreview()
+        {
+            if (GameTimeMinutes == 0)
+            {
+                _isTimeInfinite = true;
+                MyTimeDisplay = "∞";
+                OpponentTimeDisplay = "∞";
+            }
+            else
+            {
+                _isTimeInfinite = false;
+                _whiteTime = TimeSpan.FromMinutes(GameTimeMinutes);
+                _blackTime = TimeSpan.FromMinutes(GameTimeMinutes);
+                UpdateTimeDisplay();
+            }
+        }
 
         private void StartTimers()
         {

@@ -368,6 +368,100 @@
                 
                 <!-- Action Controls: Start Game / Post-Game Analysis / Analysis Toolbox -->
                 <StackPanel Grid.Row="2">
+                    <!-- Bot Pre-Game Setup Panel (Color & Time) -->
+                    <Border Background="#262626" BorderBrush="#444" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10"
+                            Visibility="{Binding CanConfigureBotMatch, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="⚔️ Tùy chọn ván đấu" Foreground="#FFD166" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
+
+                            <!-- Color Selection -->
+                            <TextBlock Text="Chọn quân:" Foreground="#ccc" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,10">
+                                <UniformGrid.Resources>
+                                    <Style TargetType="RadioButton">
+                                        <Setter Property="Foreground" Value="#ddd"/>
+                                        <Setter Property="FontSize" Value="11"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="RadioButton">
+                                                    <Border x:Name="BtnBorder" Background="#383838" BorderBrush="#555" BorderThickness="1" CornerRadius="5" Padding="4,6">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="BtnBorder" Property="Background" Value="#454545"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="BtnBorder" Property="Background" Value="#E6A817"/>
+                                                            <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#FFD166"/>
+                                                            <Setter Property="Foreground" Value="#111"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </UniformGrid.Resources>
+                                <RadioButton GroupName="BotSide" Content="♔ Trắng" IsChecked="{Binding IsBotSideWhite, Mode=TwoWay}" Margin="0,0,2,0" ToolTip="Bạn cầm quân Trắng (đi trước)"/>
+                                <RadioButton GroupName="BotSide" Content="🎲 Ngẫu nhiên" IsChecked="{Binding IsBotSideRandom, Mode=TwoWay}" Margin="2,0" ToolTip="Chọn ngẫu nhiên Trắng hoặc Đen"/>
+                                <RadioButton GroupName="BotSide" Content="♚ Đen" IsChecked="{Binding IsBotSideBlack, Mode=TwoWay}" Margin="2,0,0,0" ToolTip="Bạn cầm quân Đen (Bot đi trước)"/>
+                            </UniformGrid>
+
+                            <!-- Time Selection -->
+                            <TextBlock Text="Thời gian:" Foreground="#ccc" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <UniformGrid Columns="5" Margin="0,0,0,6">
+                                <UniformGrid.Resources>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="#383838"/>
+                                        <Setter Property="Foreground" Value="#ddd"/>
+                                        <Setter Property="BorderBrush" Value="#555"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="FontSize" Value="11"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Padding" Value="0,4"/>
+                                        <Setter Property="Margin" Value="1,0"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="b" Property="Background" Value="#4a4a4a"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </UniformGrid.Resources>
+                                <Button Content="3|2" Command="{Binding SetTimeControlCommand}" CommandParameter="3,2" ToolTip="3 phút + 2 giây mỗi nước"/>
+                                <Button Content="5|0" Command="{Binding SetTimeControlCommand}" CommandParameter="5,0" ToolTip="5 phút"/>
+                                <Button Content="10|0" Command="{Binding SetTimeControlCommand}" CommandParameter="10,0" ToolTip="10 phút"/>
+                                <Button Content="15|10" Command="{Binding SetTimeControlCommand}" CommandParameter="15,10" ToolTip="15 phút + 10 giây mỗi nước"/>
+                                <Button Content="∞" Command="{Binding SetTimeControlCommand}" CommandParameter="0,0" ToolTip="Không giới hạn thời gian"/>
+                            </UniformGrid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Phút (0=∞):" Foreground="#bbb" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" Text="{Binding GameTimeMinutes, UpdateSourceTrigger=PropertyChanged}" Width="36" Background="#1e1e1e" Foreground="White" BorderBrush="#555" Padding="3,2" TextAlignment="Center" FontSize="11"/>
+                                <TextBlock Grid.Column="3" Text="+Giây:" Foreground="#bbb" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="4" Text="{Binding TimeIncrementSeconds, UpdateSourceTrigger=PropertyChanged}" Width="36" Background="#1e1e1e" Foreground="White" BorderBrush="#555" Padding="3,2" TextAlignment="Center" FontSize="11"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Start / Play Again Button -->
                     <Button Content="{Binding StartButtonText}" Command="{Binding StartGameCommand}" Background="#2e7d32" Foreground="White" Padding="8,7" Margin="0,0,0,10" FontWeight="Bold" FontSize="13" Cursor="Hand" Visibility="{Binding CanStartGame, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
