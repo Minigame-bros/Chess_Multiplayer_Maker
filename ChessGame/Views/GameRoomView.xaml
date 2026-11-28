@@ -29,12 +29,61 @@
                         <RowDefinition Height="Auto" /> <!-- My Info -->
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" /> <!-- Eval Bar -->
+                        <ColumnDefinition Width="Auto" /> <!-- Row Labels -->
+                        <ColumnDefinition Width="*" />    <!-- Board -->
                     </Grid.ColumnDefinitions>
 
+                    <!-- Evaluation Bar (visible in Analysis Mode) -->
+                    <Border Grid.Row="1" Grid.Column="0" Width="28" Height="575" Margin="0,0,8,0"
+                            CornerRadius="4" ClipToBounds="True" BorderBrush="#555" BorderThickness="1"
+                            Background="{Binding EvalBarTopBrush}"
+                            ToolTip="{Binding EvalDepthText}"
+                            Visibility="{Binding IsAnalysisMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid>
+                            <Rectangle x:Name="EvalBottomFill" VerticalAlignment="Bottom" Height="287.5"
+                                       Fill="{Binding EvalBarBottomBrush}" />
+                            <!-- Score at Top (when top side has advantage) -->
+                            <TextBlock Text="{Binding EvalScoreText}" FontSize="10" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,5,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Setter Property="Foreground" Value="#F0F0F0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding EvalScoreAtBottom}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsBoardRotated}" Value="True">
+                                                <Setter Property="Foreground" Value="#222222"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <!-- Score at Bottom (when bottom side has advantage) -->
+                            <TextBlock Text="{Binding EvalScoreText}" FontSize="10" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Setter Property="Foreground" Value="#222222"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding EvalScoreAtBottom}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsBoardRotated}" Value="True">
+                                                <Setter Property="Foreground" Value="#F0F0F0"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+
                     <!-- Opponent Info -->
-                    <Grid Grid.Row="0" Grid.Column="1" Margin="0,0,0,10">
+                    <Grid Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -49,7 +98,7 @@
                     </Grid>
 
                     <!-- Row Labels (Left) -->
-                    <ItemsControl Grid.Row="1" Grid.Column="0" ItemsSource="{Binding RowLabels}" Width="30">
+                    <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding RowLabels}" Width="30">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <UniformGrid Rows="8" Columns="1" />
@@ -64,7 +113,7 @@
                     </ItemsControl>
 
                     <!-- Chess Board -->
-                    <Grid Grid.Row="1" Grid.Column="1" x:Name="BoardContainer" Background="Transparent"
+                    <Grid Grid.Row="1" Grid.Column="2" x:Name="BoardContainer" Background="Transparent"
                           MouseMove="BoardContainer_MouseMove" MouseLeftButtonUp="BoardContainer_MouseLeftButtonUp"
                           PreviewMouseLeftButtonDown="BoardContainer_PreviewMouseLeftButtonDown"
                           MouseRightButtonDown="BoardContainer_MouseRightButtonDown" MouseRightButtonUp="BoardContainer_MouseRightButtonUp">
@@ -111,7 +160,7 @@
                     </Grid>
 
                     <!-- Column Labels (Bottom) -->
-                    <ItemsControl Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ColumnLabels}" Height="30">
+                    <ItemsControl Grid.Row="2" Grid.Column="2" ItemsSource="{Binding ColumnLabels}" Height="30">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <UniformGrid Rows="1" Columns="8" />
@@ -126,7 +175,7 @@
                     </ItemsControl>
 
                     <!-- My Info -->
-                    <Grid Grid.Row="3" Grid.Column="1" Margin="0,10,0,0">
+                    <Grid Grid.Row="3" Grid.Column="2" Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />

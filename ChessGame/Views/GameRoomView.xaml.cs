@@ -11,6 +11,7 @@ namespace ChessGame.Views
         private ViewModels.SquareViewModel _rightDragStartSquare;
         private System.Windows.Shapes.Path _tempArrow;
         private bool _isRightDragging = false;
+        private ViewModels.GameRoomViewModel _subscribedVm;
 
         public GameRoomView()
         {
@@ -21,6 +22,66 @@ namespace ChessGame.Views
                 Focus();
             };
             PreviewKeyDown += GameRoomView_PreviewKeyDown;
+            DataContextChanged += GameRoomView_DataContextChanged;
+            Unloaded += GameRoomView_Unloaded;
+        }
+
+        private void GameRoomView_DataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e)
+        {
+            if (_subscribedVm != null)
+            {
+                _subscribedVm.PropertyChanged -= ViewModel_PropertyChanged;
+                _subscribedVm = null;
+            }
+
+            if (e.NewValue is ViewModels.GameRoomViewModel vm)
+            {
+                _subscribedVm = vm;
+                _subscribedVm.PropertyChanged += ViewModel_PropertyChanged;
+                AnimateEvalBar(vm.EvalBarBottomRatio, immediate: true);
+            }
+        }
+
+        private void GameRoomView_Unloaded(object sender, System.Windows.RoutedEventArgs e)
+        {
+            if (_subscribedVm != null)
+            {
+                _subscribedVm.PropertyChanged -= ViewModel_PropertyChanged;
+                _subscribedVm = null;
+            }
+        }
+
+        private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ViewModels.GameRoomViewModel.EvalBarBottomRatio) &&
+                sender is ViewModels.GameRoomViewModel vm)
+            {
+                AnimateEvalBar(vm.EvalBarBottomRatio, immediate: false);
+            }
+        }
+
+        private void AnimateEvalBar(double bottomRatio, bool immediate)
+        {
+            if (EvalBottomFill == null) return;
+
+            double targetHeight = 575.0 * System.Math.Clamp(bottomRatio, 0.0, 1.0);
+            if (immediate)
+            {
+                EvalBottomFill.BeginAnimation(HeightProperty, null);
+                EvalBottomFill.Height = targetHeight;
+                return;
+            }
+
+            var anim = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                To = targetHeight,
+                Duration = System.TimeSpan.FromMilliseconds(280),
+                EasingFunction = new System.Windows.Media.Animation.CubicEase
+                {
+                    EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut
+                }
+            };
+            EvalBottomFill.BeginAnimation(HeightProperty, anim);
         }
 
         private void GameRoomView_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)

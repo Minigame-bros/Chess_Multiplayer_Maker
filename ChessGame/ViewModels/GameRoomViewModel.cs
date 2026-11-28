@@ -138,6 +138,44 @@ namespace ChessGame.ViewModels
             }
         }
 
+        private StockfishAnalyzer? _analyzer;
+        private string _lastAnalyzedFen = string.Empty;
+        private double _evalBarWhiteRatio = 0.5;
+        public double EvalBarWhiteRatio
+        {
+            get => _evalBarWhiteRatio;
+            private set
+            {
+                _evalBarWhiteRatio = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EvalBarBottomRatio));
+                OnPropertyChanged(nameof(EvalScoreAtBottom));
+            }
+        }
+
+        public double EvalBarBottomRatio => Math.Clamp(_isBoardRotated ? 1.0 - _evalBarWhiteRatio : _evalBarWhiteRatio, 0.0, 1.0);
+        public bool EvalScoreAtBottom => EvalBarBottomRatio >= 0.5;
+
+        private static readonly Brush EvalWhiteBrush = new SolidColorBrush(Color.FromRgb(240, 240, 240));
+        private static readonly Brush EvalBlackBrush = new SolidColorBrush(Color.FromRgb(48, 46, 43));
+
+        public Brush EvalBarBottomBrush => _isBoardRotated ? EvalBlackBrush : EvalWhiteBrush;
+        public Brush EvalBarTopBrush => _isBoardRotated ? EvalWhiteBrush : EvalBlackBrush;
+
+        private string _evalScoreText = "0.0";
+        public string EvalScoreText
+        {
+            get => _evalScoreText;
+            private set { _evalScoreText = value; OnPropertyChanged(); }
+        }
+
+        private string _evalDepthText = "depth=0";
+        public string EvalDepthText
+        {
+            get => _evalDepthText;
+            private set { _evalDepthText = value; OnPropertyChanged(); }
+        }
+
         public bool IsHost => MainViewModel.Instance.IsMultiplayerHost && !_isAnalysisMode;
         public bool IsHotseatMode => !MainViewModel.Instance.IsMultiplayerHost && !MainViewModel.Instance.IsMultiplayerClient && _bot == null && !_isAnalysisMode;
         public bool IsMultiplayerMode => (MainViewModel.Instance.IsMultiplayerHost || MainViewModel.Instance.IsMultiplayerClient) && !_isAnalysisMode;
@@ -574,6 +612,7 @@ namespace ChessGame.ViewModels
                 MainViewModel.Instance.IsMultiplayerHost = false;
                 MainViewModel.Instance.IsMultiplayerClient = false;
             }
+            DisposeAnalyzer();
             MainViewModel.Instance.NavigateTo(new MainMenuViewModel());
         }
 
@@ -669,6 +708,10 @@ namespace ChessGame.ViewModels
         {
             _isBoardRotated = !_isBoardRotated;
             OnPropertyChanged(nameof(IsBoardRotated));
+            OnPropertyChanged(nameof(EvalBarBottomRatio));
+            OnPropertyChanged(nameof(EvalBarBottomBrush));
+            OnPropertyChanged(nameof(EvalBarTopBrush));
+            OnPropertyChanged(nameof(EvalScoreAtBottom));
             InitializeSquares();
             if (SelectedHistoryMove != null)
             {
@@ -1408,6 +1451,7 @@ namespace ChessGame.ViewModels
             UpdateCapturedPiecesDisplay();
             OnPropertyChanged(nameof(CurrentFen));
             OnPropertyChanged(nameof(CurrentPgn));
+            TriggerEvaluationForCurrentGame();
         }
         
         private void UpdateCapturedPiecesDisplay()
@@ -1552,6 +1596,7 @@ namespace ChessGame.ViewModels
             }
             
             StatusText = $"Đang xem lại nước đi cũ... Lượt: {(nextTurn == PlayerColor.White ? "Trắng" : "Đen")}";
+            TriggerEvaluationForSnapshot(snapshot, nextTurn);
         }
 
         private void OnSquareClicked(object? parameter)
@@ -2284,6 +2329,8 @@ namespace ChessGame.ViewModels
 
             StatusText = $"Chế độ Phân tích: Lượt {(_game.CurrentPlayer == PlayerColor.White ? "Trắng" : "Đen")}";
             ChatMessages.Add("[Hệ thống] Đã chuyển sang Chế độ Phân tích thế cờ. Bạn có thể tự do thử nghiệm cho cả 2 bên hoặc nạp FEN/PGN.");
+            EnsureAnalyzerInitialized();
+            TriggerEvaluationForCurrentGame();
         }
 
         private void OnResetAnalysisBoard(object? parameter)
@@ -2530,6 +2577,148 @@ namespace ChessGame.ViewModels
             IsFenPgnDialogVisible = false;
             StatusText = $"Đã nạp ván cờ PGN ({moves.Count} nước đi)!";
             Services.AudioService.Instance.PlayGameStartSound();
+        }
+
+        private void EnsureAnalyzerInitialized()
+        {
+            if (_analyzer != null) return;
+            try
+            {
+                _analyzer = new StockfishAnalyzer();
+                _analyzer.EvaluationUpdated += Analyzer_EvaluationUpdated;
+            }
+            catch (Exception ex)
+            {
+                ChatMessages.Add($"[Hệ thống] Không thể khởi động Stockfish phân tích: {ex.Message}");
+            }
+        }
+
+        private void DisposeAnalyzer()
+        {
+            if (_analyzer == null) return;
+            _analyzer.EvaluationUpdated -= Analyzer_EvaluationUpdated;
+            _analyzer.Dispose();
+            _analyzer = null;
+        }
+
+        private void TriggerEvaluationForCurrentGame()
+        {
+            if (!IsAnalysisMode || IsViewingHistory) return;
+
+            if (_game.IsCheckmate)
+            {
+                _analyzer?.Stop();
+                bool whiteWon = _game.CurrentPlayer == PlayerColor.Black;
+                EvalBarWhiteRatio = whiteWon ? 1.0 : 0.0;
+                EvalScoreText = whiteWon ? "1-0" : "0-1";
+                EvalDepthText = "Checkmate";
+                _lastAnalyzedFen = string.Empty;
+                return;
+            }
+
+            if (_game.IsStalemate || _game.DrawReason != DrawReason.None)
+            {
+                _analyzer?.Stop();
+                EvalBarWhiteRatio = 0.5;
+                EvalScoreText = "0.0";
+                EvalDepthText = "Draw";
+                _lastAnalyzedFen = string.Empty;
+                return;
+            }
+
+            EnsureAnalyzerInitialized();
+            string fen = FenService.GenerateFen(_game);
+            _lastAnalyzedFen = fen;
+            _analyzer?.AnalyzeFen(fen);
+        }
+
+        private void TriggerEvaluationForSnapshot(List<PieceDto> snapshot, PlayerColor nextTurn)
+        {
+            if (!IsAnalysisMode) return;
+
+            EnsureAnalyzerInitialized();
+            string fen = BuildFenFromSnapshot(snapshot, nextTurn);
+            _lastAnalyzedFen = fen;
+            _analyzer?.AnalyzeFen(fen);
+        }
+
+        private static string BuildFenFromSnapshot(List<PieceDto> snapshot, PlayerColor nextTurn)
+        {
+            var board = new char[8, 8];
+            foreach (var p in snapshot)
+            {
+                if (p.Row < 0 || p.Row > 7 || p.Col < 0 || p.Col > 7) continue;
+                char c = (PieceType)p.Type switch
+                {
+                    PieceType.Pawn => 'p',
+                    PieceType.Rook => 'r',
+                    PieceType.Knight => 'n',
+                    PieceType.Bishop => 'b',
+                    PieceType.Queen => 'q',
+                    PieceType.King => 'k',
+                    _ => ' '
+                };
+                if (c != ' ' && p.Color == (int)PlayerColor.White)
+                    c = char.ToUpperInvariant(c);
+                board[p.Row, p.Col] = c;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            for (int r = 0; r < 8; r++)
+            {
+                int empty = 0;
+                for (int c = 0; c < 8; c++)
+                {
+                    char ch = board[r, c];
+                    if (ch == '\0' || ch == ' ')
+                    {
+                        empty++;
+                    }
+                    else
+                    {
+                        if (empty > 0) { sb.Append(empty); empty = 0; }
+                        sb.Append(ch);
+                    }
+                }
+                if (empty > 0) sb.Append(empty);
+                if (r < 7) sb.Append('/');
+            }
+
+            sb.Append(nextTurn == PlayerColor.White ? " w " : " b ");
+            sb.Append("- - 0 1");
+            return sb.ToString();
+        }
+
+        private void Analyzer_EvaluationUpdated(object? sender, EvaluationResult e)
+        {
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                if (!IsAnalysisMode || e.Fen != _lastAnalyzedFen) return;
+
+                double whiteRatio;
+                string scoreText;
+
+                if (e.MateIn.HasValue)
+                {
+                    int mate = e.MateIn.Value;
+                    whiteRatio = mate > 0 ? 1.0 : 0.0;
+                    scoreText = mate > 0 ? $"M{mate}" : $"-M{Math.Abs(mate)}";
+                }
+                else
+                {
+                    int cp = e.Centipawns ?? 0;
+                    // Sigmoid mapping matching Chess.com / Lichess style eval bar
+                    whiteRatio = 1.0 / (1.0 + Math.Exp(-0.004 * cp));
+                    double pawns = cp / 100.0;
+                    scoreText = Math.Abs(pawns) < 0.05
+                        ? "0.0"
+                        : (pawns > 0 ? $"+{pawns:0.0}" : $"{pawns:0.0}");
+                }
+
+                EvalBarWhiteRatio = whiteRatio;
+                EvalScoreText = scoreText;
+                EvalDepthText = $"depth={e.Depth} | Stockfish";
+            });
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
